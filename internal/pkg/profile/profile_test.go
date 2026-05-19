@@ -1,9 +1,12 @@
-package main
+package profile
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
+	"github.com/PapaDanielVi/jamshid/internal/pkg/models"
 )
 
 func TestAddDeleteProfile(t *testing.T) {
@@ -12,7 +15,7 @@ func TestAddDeleteProfile(t *testing.T) {
 	_ = os.Setenv("HOME", dir)
 	defer func() { _ = os.Setenv("HOME", origHome) }()
 
-	cfg, err := LoadConfig()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -39,8 +42,8 @@ func TestAddDeleteProfile(t *testing.T) {
 }
 
 func TestGetProfile(t *testing.T) {
-	cfg := &Config{
-		Profiles: map[string]Profile{
+	cfg := &config.Config{
+		Profiles: map[string]models.Profile{
 			"work": {Name: "work", Model: "claude-opus-4-7"},
 		},
 	}
@@ -54,8 +57,8 @@ func TestGetProfile(t *testing.T) {
 }
 
 func TestListProfiles(t *testing.T) {
-	cfg := &Config{
-		Profiles: map[string]Profile{
+	cfg := &config.Config{
+		Profiles: map[string]models.Profile{
 			"a": {Name: "a"},
 			"b": {Name: "b"},
 		},
@@ -72,14 +75,14 @@ func TestLinkUnlinkProfile(t *testing.T) {
 	_ = os.Setenv("HOME", dir)
 	defer func() { _ = os.Setenv("HOME", origHome) }()
 
-	cfg, _ := LoadConfig()
-	cfg.LinkedDirs = make(map[string]DirEntry)
+	cfg, _ := config.LoadConfig()
+	cfg.LinkedDirs = make(map[string]config.DirEntry)
 	if err := AddProfile(cfg, "myprofile"); err != nil {
 		t.Fatalf("AddProfile: %v", err)
 	}
 
 	cwd := t.TempDir()
-	if err := LinkProfile(cfg, cwd, "myprofile"); err != nil {
+	if err := LinkProfile(cfg, cwd, "myprofile", false); err != nil {
 		t.Fatalf("LinkProfile: %v", err)
 	}
 

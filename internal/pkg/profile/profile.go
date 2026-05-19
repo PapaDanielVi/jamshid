@@ -1,4 +1,4 @@
-package main
+package profile
 
 import (
 	"encoding/json"
@@ -6,28 +6,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
+	"github.com/PapaDanielVi/jamshid/internal/pkg/hash"
+	"github.com/PapaDanielVi/jamshid/internal/pkg/models"
 )
-
-// McpServer defines an MCP server configuration.
-type McpServer struct {
-	Name    string   `json:"name"`
-	Command string   `json:"command"`
-	Args    []string `json:"args,omitempty"`
-}
-
-// Profile holds configuration for a Claude Code profile.
-type Profile struct {
-	Name         string            `json:"name"`
-	EnvVars      map[string]string `json:"env_vars,omitempty"`
-	ClaudeConfig map[string]any    `json:"claude_config,omitempty"`
-	McpServers   []McpServer       `json:"mcp_servers,omitempty"`
-	Model        string            `json:"model,omitempty"`
-	Timeout      string            `json:"timeout,omitempty"`
-}
 
 // ProfileDir returns the directory for a profile.
 func ProfileDir(name string) (string, error) {
-	dir, err := jamshidDir()
+	dir, err := config.JamshidDir()
 	if err != nil {
 		return "", err
 	}
@@ -35,15 +22,15 @@ func ProfileDir(name string) (string, error) {
 }
 
 // AddProfile creates a new profile with the given name.
-// Optional importPath can be provided to import settings from an existing file.
-func AddProfile(cfg *Config, name string, importPath ...string) error {
+// Optional importPath can be provided to import settings from an existing file or directory.
+func AddProfile(cfg *config.Config, name string, importPath ...string) error {
 	if name == "" {
 		return fmt.Errorf("profile name cannot be empty")
 	}
 	if _, exists := cfg.Profiles[name]; exists {
 		return fmt.Errorf("profile %q already exists", name)
 	}
-	cfg.Profiles[name] = Profile{
+	cfg.Profiles[name] = models.Profile{
 		Name:    name,
 		EnvVars: make(map[string]string),
 	}
@@ -59,13 +46,22 @@ func AddProfile(cfg *Config, name string, importPath ...string) error {
 	// Handle optional import path
 	if len(importPath) > 0 && importPath[0] != "" {
 		src := importPath[0]
-		data, err := os.ReadFile(src)
-		if err != nil {
-			return fmt.Errorf("read import file: %w", err)
-		}
-		dst := filepath.Join(dir, ".claude", filepath.Base(src))
-		if err := os.WriteFile(dst, data, 0644); err != nil {
-			return fmt.Errorf("write imported settings: %w", err)
+		// Check if src is a directory (.claude folder)
+		if info, err := os.Stat(src); err == nil && info.IsDir() {
+			// Copy entire directory
+			if err := copyDir(src, filepath.Join(dir, ".claude")); err != nil {
+				return fmt.Errorf("copy .claude dir: %w", err)
+			}
+		} else {
+			// Copy single file
+			data, err := os.ReadFile(src)
+			if err != nil {
+				return fmt.Errorf("read import file: %w", err)
+			}
+			dst := filepath.Join(dir, ".claude", filepath.Base(src))
+			if err := os.WriteFile(dst, data, 0644); err != nil {
+				return fmt.Errorf("write imported settings: %w", err)
+			}
 		}
 	} else {
 		// Create default settings.json
@@ -81,8 +77,37 @@ func AddProfile(cfg *Config, name string, importPath ...string) error {
 	return nil
 }
 
+// copyDir copies an entire directory recursively.
+func copyDir(src, dst string) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(dstPath, data, 0644); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // DeleteProfile removes a profile by name.
-func DeleteProfile(cfg *Config, name string) error {
+func DeleteProfile(cfg *config.Config, name string) error {
 	if _, exists := cfg.Profiles[name]; !exists {
 		return fmt.Errorf("profile %q not found", name)
 	}
@@ -99,13 +124,13 @@ func DeleteProfile(cfg *Config, name string) error {
 }
 
 // GetProfile returns a profile by name.
-func GetProfile(cfg *Config, name string) (Profile, bool) {
+func GetProfile(cfg *config.Config, name string) (models.Profile, bool) {
 	p, ok := cfg.Profiles[name]
 	return p, ok
 }
 
 // ListProfiles returns all profile names.
-func ListProfiles(cfg *Config) []string {
+func ListProfiles(cfg *config.Config) []string {
 	names := make([]string, 0, len(cfg.Profiles))
 	for name := range cfg.Profiles {
 		names = append(names, name)
@@ -114,12 +139,18 @@ func ListProfiles(cfg *Config) []string {
 }
 
 // LinkProfile symlinks a profile's .claude dir to cwd.
-func LinkProfile(cfg *Config, cwd, profileName string) error {
+func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error {
 	if _, exists := cfg.Profiles[profileName]; !exists {
 		return fmt.Errorf("profile %q not found", profileName)
 	}
 
-	hash := DirHash(cwd)
+	// Check if .claude/settings.local.json exists and force is not set
+	settingsLocal := filepath.Join(cwd, ".claude", "settings.local.json")
+	if _, err := os.Stat(settingsLocal); err == nil && !force {
+		return fmt.Errorf(".claude/settings.local.json already exists, use --force to overwrite")
+	}
+
+	hash := hash.DirHash(cwd)
 	dir, err := ProfileDir(profileName)
 	if err != nil {
 		return err
@@ -128,12 +159,19 @@ func LinkProfile(cfg *Config, cwd, profileName string) error {
 	claudeTarget := filepath.Join(dir, ".claude")
 	claudeLink := filepath.Join(cwd, ".claude")
 
-	// If .claude exists as a real directory, back it up
+	// If .claude exists as a real directory, handle it
 	if info, err := os.Lstat(claudeLink); err == nil {
 		if info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
-			backup := claudeLink + ".bak"
-			if err := os.Rename(claudeLink, backup); err != nil {
-				return fmt.Errorf("backup .claude: %w", err)
+			if force {
+				// If force, remove the existing directory
+				if err := os.RemoveAll(claudeLink); err != nil {
+					return fmt.Errorf("remove .claude: %w", err)
+				}
+			} else {
+				backup := claudeLink + ".bak"
+				if err := os.Rename(claudeLink, backup); err != nil {
+					return fmt.Errorf("backup .claude: %w", err)
+				}
 			}
 		} else if info.Mode()&os.ModeSymlink != 0 {
 			_ = os.Remove(claudeLink)
@@ -144,13 +182,13 @@ func LinkProfile(cfg *Config, cwd, profileName string) error {
 		return fmt.Errorf("create symlink: %w", err)
 	}
 
-	cfg.LinkedDirs[hash] = DirEntry{Path: cwd, Hash: hash, Profile: profileName}
+	cfg.LinkedDirs[hash] = config.DirEntry{Path: cwd, Hash: hash, Profile: profileName}
 	return nil
 }
 
 // UnlinkProfile removes the .claude symlink from cwd.
-func UnlinkProfile(cfg *Config, cwd string) error {
-	hash := DirHash(cwd)
+func UnlinkProfile(cfg *config.Config, cwd string) error {
+	hash := hash.DirHash(cwd)
 	delete(cfg.LinkedDirs, hash)
 
 	claudeLink := filepath.Join(cwd, ".claude")
@@ -172,8 +210,8 @@ func IsGitRepo(dir string) bool {
 }
 
 // GetActiveProfile returns the active profile for cwd.
-func GetActiveProfile(cfg *Config, cwd string) string {
-	hash := DirHash(cwd)
+func GetActiveProfile(cfg *config.Config, cwd string) string {
+	hash := hash.DirHash(cwd)
 	if entry, ok := cfg.LinkedDirs[hash]; ok {
 		return entry.Profile
 	}

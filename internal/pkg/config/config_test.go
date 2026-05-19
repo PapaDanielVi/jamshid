@@ -1,9 +1,11 @@
-package main
+package config
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/PapaDanielVi/jamshid/internal/pkg/models"
 )
 
 func TestLoadSaveConfig(t *testing.T) {
@@ -22,7 +24,7 @@ func TestLoadSaveConfig(t *testing.T) {
 	}
 
 	cfg.GlobalProfile = "personal"
-	cfg.Profiles["test"] = Profile{Name: "test"}
+	cfg.Profiles["test"] = models.Profile{Name: "test"}
 	if err := SaveConfig(cfg); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}

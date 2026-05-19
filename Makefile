@@ -1,7 +1,7 @@
 .PHONY: build test lint fmt vet all
 
 build:
-	go build -o jamshid .
+	go build -o jamshid ./cmd/jamshid
 
 test:
 	go test ./... -v -race

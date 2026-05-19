@@ -1,10 +1,12 @@
-package main
+package config
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/PapaDanielVi/jamshid/internal/pkg/models"
 )
 
 // DirEntry tracks a directory linked to a profile.
@@ -16,14 +18,14 @@ type DirEntry struct {
 
 // Config holds global jamshid settings.
 type Config struct {
-	Version       string              `json:"version"`
-	GlobalProfile string              `json:"global_profile,omitempty"`
-	Profiles      map[string]Profile  `json:"profiles,omitempty"`
-	VaultRemote   string              `json:"vault_remote,omitempty"`
-	LinkedDirs    map[string]DirEntry `json:"linked_dirs,omitempty"`
+	Version       string                  `json:"version"`
+	GlobalProfile string                  `json:"global_profile,omitempty"`
+	Profiles      map[string]models.Profile `json:"profiles,omitempty"`
+	VaultRemote   string                  `json:"vault_remote,omitempty"`
+	LinkedDirs    map[string]DirEntry     `json:"linked_dirs,omitempty"`
 }
 
-func jamshidDir() (string, error) {
+func JamshidDir() (string, error) {
 	home := os.Getenv("HOME")
 	if home == "" {
 		var err error
@@ -36,7 +38,7 @@ func jamshidDir() (string, error) {
 }
 
 func configPath() (string, error) {
-	dir, err := jamshidDir()
+	dir, err := JamshidDir()
 	if err != nil {
 		return "", err
 	}
@@ -57,7 +59,7 @@ func LoadConfig() (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Config{Version: "1", Profiles: make(map[string]Profile)}, nil
+			return &Config{Version: "1", Profiles: make(map[string]models.Profile)}, nil
 		}
 		return nil, fmt.Errorf("read config: %w", err)
 	}
@@ -67,7 +69,7 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 	if cfg.Profiles == nil {
-		cfg.Profiles = make(map[string]Profile)
+		cfg.Profiles = make(map[string]models.Profile)
 	}
 	if cfg.LinkedDirs == nil {
 		cfg.LinkedDirs = make(map[string]DirEntry)

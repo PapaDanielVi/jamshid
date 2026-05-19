@@ -1,13 +1,15 @@
-package main
+package gitvault
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
 )
 
-// checkGhAuth verifies that `gh` CLI is installed and authenticated.
-func checkGhAuth() error {
+// CheckGhAuth verifies that `gh` CLI is installed and authenticated.
+func CheckGhAuth() error {
 	// Check if gh is installed
 	if err := exec.Command("which", "gh").Run(); err != nil {
 		return fmt.Errorf("`gh` CLI is not installed - install it from https://cli.github.com")
@@ -22,7 +24,7 @@ func checkGhAuth() error {
 
 // InitVault initializes a git vault at ~/.config/jamshid/ with the given remote.
 func InitVault(remote string) error {
-	dir, err := jamshidDir()
+	dir, err := config.JamshidDir()
 	if err != nil {
 		return err
 	}
@@ -44,7 +46,7 @@ func InitVault(remote string) error {
 
 // SyncPush commits and pushes all changes to the vault remote.
 func SyncPush() error {
-	dir, err := jamshidDir()
+	dir, err := config.JamshidDir()
 	if err != nil {
 		return err
 	}
@@ -67,7 +69,7 @@ func SyncPush() error {
 
 // SyncPull pulls latest changes from the vault remote.
 func SyncPull() error {
-	dir, err := jamshidDir()
+	dir, err := config.JamshidDir()
 	if err != nil {
 		return err
 	}
