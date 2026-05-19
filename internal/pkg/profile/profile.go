@@ -292,19 +292,6 @@ func EnvVar(name string) (string, error) {
 	return fmt.Sprintf("CLAUDE_CONFIG_DIR=%s", path), nil
 }
 
-// EnvVarsForAll returns CLAUDE_CONFIG_DIR export statements for all profiles.
-func EnvVarsForAll(cfg *config.Config) ([]string, error) {
-	var lines []string
-	for _, name := range ListProfiles(cfg) {
-		env, err := EnvVar(name)
-		if err != nil {
-			return nil, err
-		}
-		lines = append(lines, env)
-	}
-	return lines, nil
-}
-
 // Ensure MCP config file names are valid (used for validation).
 func IsValidMCPConfigFile(name string) bool {
 	for _, f := range mcpConfigFiles {

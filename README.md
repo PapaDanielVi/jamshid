@@ -1,6 +1,6 @@
 # Jamshid
 
-![Jamshid Icon](docs/jamshid_icon.png)
+<img src="docs/jamshid_icon.png" alt="jamshid" width="300"/>
 
 ![Go Version](https://img.shields.io/badge/Go-1.26-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -55,7 +55,7 @@ cd /path/to/project
 jamshid link work
 
 # Or use env mode (no symlinks — sets CLAUDE_CONFIG_DIR)
-eval $(jamshid env work)
+jamshid env work
 claude
 
 # Unlink
@@ -70,19 +70,19 @@ jamshid --version
 
 ## CLI Reference
 
-| Command                    | Description                                           |
-| -------------------------- | ----------------------------------------------------- |
-| `jamshid`                  | Launch interactive TUI                                |
-| `jamshid add <name>`       | Create new profile (imports settings + MCP configs)   |
-| `jamshid delete <name>`    | Delete profile                                        |
-| `jamshid list`             | List all profiles with their paths                    |
-| `jamshid link [profile]`   | Link profile to cwd via symlinks (interactive)        |
-| `jamshid unlink`           | Remove profile symlinks from cwd                      |
-| `jamshid env [profile]`    | Print `CLAUDE_CONFIG_DIR` export for a profile        |
-| `jamshid vault init <url>` | Configure git vault remote                            |
-| `jamshid vault sync`       | Trigger git sync                                      |
-| `jamshid version`          | Print version                                         |
-| `jamshid help`             | Show help message                                     |
+| Command                    | Description                                               |
+| -------------------------- | --------------------------------------------------------- |
+| `jamshid`                  | Launch interactive TUI                                    |
+| `jamshid add <name>`       | Create new profile (imports settings + MCP configs)       |
+| `jamshid delete <name>`    | Delete profile                                            |
+| `jamshid list`             | List all profiles with their paths                        |
+| `jamshid link [profile]`   | Link profile to cwd via symlinks (interactive)            |
+| `jamshid unlink`           | Remove profile symlinks from cwd                          |
+| `jamshid env <profile>`    | Set `CLAUDE_CONFIG_DIR` to the profile's config directory |
+| `jamshid vault init <url>` | Configure git vault remote                                |
+| `jamshid vault sync`       | Trigger git sync                                          |
+| `jamshid version`          | Print version                                             |
+| `jamshid help`             | Show help message                                         |
 
 ## Examples
 
@@ -110,18 +110,14 @@ jamshid link work
 ### Use env mode (no symlinks)
 
 ```bash
-# Set CLAUDE_CONFIG_DIR for the current shell session
-eval $(jamshid env work)
-# Output: export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/work/.claude
+# Set CLAUDE_CONFIG_DIR directly in the current process
+jamshid env work
+# Output:
+#   Claude Code is now using profile "work"
+#   CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/work/.claude
 
 # Now run Claude Code — it will use the profile's config directory
 claude
-
-# Print all profile env vars
-eval $(jamshid env)
-# Output:
-#   export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/personal/.claude
-#   export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/work/.claude
 ```
 
 ### Link a profile interactively
@@ -152,10 +148,9 @@ Jamshid offers two ways to use profiles:
 
 ### Env Mode (`env`)
 
-1. `jamshid env <profile>` prints `export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/<name>/.claude`
-2. Use `eval $(jamshid env <profile>)` in your shell to set the variable
-3. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config — no symlinks needed
-4. This is ideal for users who prefer environment-based config switching
+1. `jamshid env <profile>` sets `CLAUDE_CONFIG_DIR` directly in the current process via `os.Setenv`
+2. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config — no symlinks needed
+3. This is ideal for users who prefer environment-based config switching
 
 ## Project Structure
 

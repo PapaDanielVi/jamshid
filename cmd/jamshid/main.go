@@ -283,20 +283,8 @@ func cmdUnlink(cfg *config.Config, cwd string) {
 
 func cmdEnv(cfg *config.Config, args []string) {
 	if len(args) < 1 {
-		// Print all profiles' env vars
-		envs, err := profile.EnvVarsForAll(cfg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		if len(envs) == 0 {
-			fmt.Println("No profiles configured.")
-			os.Exit(1)
-		}
-		for _, env := range envs {
-			fmt.Printf("export %s\n", env)
-		}
-		return
+		fmt.Fprintln(os.Stderr, "Usage: jamshid env <profile>")
+		os.Exit(1)
 	}
 
 	name := args[0]
@@ -305,12 +293,18 @@ func cmdEnv(cfg *config.Config, args []string) {
 		os.Exit(1)
 	}
 
-	env, err := profile.EnvVar(name)
+	path, err := profile.ProfilePath(name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("export %s\n", env)
+
+	if err := os.Setenv("CLAUDE_CONFIG_DIR", path); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: set env: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Claude Code is now using profile %q\n", name)
+	fmt.Printf("CLAUDE_CONFIG_DIR=%s\n", path)
 }
 
 func cmdVault(cfg *config.Config, args []string) {
@@ -353,13 +347,13 @@ func cmdHelp() {
 	fmt.Println("  list                List all profiles")
 	fmt.Println("  link [profile]      Link profile to cwd via symlinks (interactive if no profile given)")
 	fmt.Println("  unlink              Unlink profile symlinks from cwd")
-	fmt.Println("  env [profile]       Print CLAUDE_CONFIG_DIR export for a profile (or all profiles)")
+	fmt.Println("  env <profile>       Set CLAUDE_CONFIG_DIR to the profile's config directory")
 	fmt.Println("  vault <init|sync>   Manage Git vault")
 	fmt.Println("  version             Print version")
 	fmt.Println("  help                Show this help message")
 	fmt.Println("\nEnv usage:")
-	fmt.Println("  eval $(jamshid env personal)   # Set CLAUDE_CONFIG_DIR for current shell")
-	fmt.Println("  eval $(jamshid env)            # Print exports for all profiles")
+	fmt.Println("  jamshid env personal           # Set CLAUDE_CONFIG_DIR in current process")
+	fmt.Println("  jamshid env work               # Switch to work profile")
 }
 
 func isLinked(cwd string, cfg *config.Config) bool {

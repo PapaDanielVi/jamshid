@@ -80,4 +80,4 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **MCP Configs**: Known MCP config file names are `.mcp.json`, `mcp.json`, `mcp_servers.json`. When adding a profile from an existing `.claude` directory, Jamshid also looks for these files in the project root (parent of `.claude`) and copies them into the profile directory. When linking/unlinking, these files are symlinked/removed alongside `settings.local.json`.
 
-**Env Mode**: The `env` command prints `export CLAUDE_CONFIG_DIR=<path>` for a profile. Users run `eval $(jamshid env <name>)` to set the variable in their shell. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config. No symlinks needed. Passing no argument prints exports for all profiles.
+**Env Mode**: The `env` command sets `CLAUDE_CONFIG_DIR` directly via `os.Setenv` and prints a confirmation message. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config. No symlinks needed. Requires a profile name argument.
