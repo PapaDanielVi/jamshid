@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
 	"github.com/PapaDanielVi/jamshid/internal/pkg/profile"
@@ -73,7 +73,7 @@ func (m *tuiModel) setCommandItems() {
 	for i, cmd := range commands {
 		items[i] = cmd
 	}
-	m.list.SetItems(items)
+	_ = m.list.SetItems(items)
 	m.list.Title = "Jamshid Commands"
 }
 
@@ -87,7 +87,7 @@ func (m *tuiModel) setProfileItems() {
 		}
 		items[i] = listItem{title: p, description: desc}
 	}
-	m.list.SetItems(items)
+	_ = m.list.SetItems(items)
 	m.list.Title = "Select Profile"
 }
 
@@ -116,7 +116,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *tuiModel) updateCommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -129,7 +129,7 @@ func (m *tuiModel) updateCommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 					switch item.title {
 					case "add":
 						return m, tea.Quit
-					case "delete", "link", "env":
+					case "delete", "link", "env", "list":
 						m.state = ViewProfiles
 						m.setProfileItems()
 						return m, nil
@@ -141,14 +141,13 @@ func (m *tuiModel) updateCommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	m.list, _ = m.list.Update(msg)
+	return m, nil
 }
 
 func (m *tuiModel) updateProfiles(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -168,24 +167,29 @@ func (m *tuiModel) updateProfiles(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	m.list, _ = m.list.Update(msg)
+	return m, nil
 }
 
-func (m tuiModel) View() string {
+func (m tuiModel) View() tea.View {
 	if m.quitting {
-		return "Goodbye!\n"
+		v := tea.NewView("Goodbye!\n")
+		return v
 	}
 
+	var content string
 	switch m.state {
 	case ViewCommands:
-		return m.commandsView()
+		content = m.commandsView()
 	case ViewProfiles:
-		return m.profilesView()
+		content = m.profilesView()
 	default:
-		return "View not implemented\n"
+		content = "View not implemented\n"
 	}
+
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
 }
 
 func (m tuiModel) commandsView() string {

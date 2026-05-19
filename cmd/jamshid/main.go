@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
 	"github.com/PapaDanielVi/jamshid/internal/pkg/constants"
@@ -37,7 +37,7 @@ func main() {
 
 	if len(os.Args) < 2 {
 		m := tui.NewTUI(cfg, cwd)
-		p := tea.NewProgram(m, tea.WithAltScreen())
+		p := tea.NewProgram(m)
 		if _, err := p.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -299,12 +299,7 @@ func cmdEnv(cfg *config.Config, args []string) {
 		os.Exit(1)
 	}
 
-	if err := os.Setenv("CLAUDE_CONFIG_DIR", path); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: set env: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Claude Code is now using profile %q\n", name)
-	fmt.Printf("CLAUDE_CONFIG_DIR=%s\n", path)
+	fmt.Printf("export CLAUDE_CONFIG_DIR=%s\n", path)
 }
 
 func cmdVault(cfg *config.Config, args []string) {
@@ -352,8 +347,8 @@ func cmdHelp() {
 	fmt.Println("  version             Print version")
 	fmt.Println("  help                Show this help message")
 	fmt.Println("\nEnv usage:")
-	fmt.Println("  jamshid env personal           # Set CLAUDE_CONFIG_DIR in current process")
-	fmt.Println("  jamshid env work               # Switch to work profile")
+	fmt.Println("  eval $(jamshid env personal)   # Set CLAUDE_CONFIG_DIR in current shell")
+	fmt.Println("  eval $(jamshid env work)       # Switch to work profile")
 }
 
 func isLinked(cwd string, cfg *config.Config) bool {

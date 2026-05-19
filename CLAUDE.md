@@ -58,7 +58,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Testing**: `os.UserHomeDir()` doesn't respect `HOME` env var. Use `os.Getenv("HOME")` in `jamshidDir()` for testability.
 
-**Bubble Tea**: Package name is `tea`, not `bubbletea`. Import as `tea "github.com/charmbracelet/bubbletea"`.
+**Bubble Tea**: Package name is `tea`, not `bubbletea`. Import as `tea "charm.land/bubbletea/v2"`. Bubbles uses `charm.land/bubbles/v2/list`. Lipgloss uses `charm.land/lipgloss/v2`.
 
 **TUI Resize**: Handle `tea.WindowSizeMsg` in `Update()` and call `m.list.SetSize(w, h)`. Bubble Tea sends this automatically on startup and on SIGWINCH.
 
@@ -68,7 +68,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Linting**: `errcheck` linter requires checking return values of `os.Setenv`, `os.MkdirAll`, `os.Remove`, etc. Use `_ =` prefix if intentionally ignoring.
 
-**Go Module Paths**: Bubble Tea v2 uses `charm.land/` paths, but v1 uses `github.com/`. Stick with v1 (`github.com/charmbracelet/bubbletea`) for stability.
+**Go Module Paths**: Bubble Tea v2 uses `charm.land/` paths. Current: `charm.land/bubbletea/v2`, `charm.land/bubbles/v2`, `charm.land/lipgloss/v2`.
 
 **Constants**: Shared constants (`.claude`, `settings.local.json`, `settings.json`, `config.json`, `profiles`, file/dir permissions, config version, commit message) live in `internal/pkg/constants`. Always use these instead of hardcoded values.
 
@@ -80,4 +80,4 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **MCP Configs**: Known MCP config file names are `.mcp.json`, `mcp.json`, `mcp_servers.json`. When adding a profile from an existing `.claude` directory, Jamshid also looks for these files in the project root (parent of `.claude`) and copies them into the profile directory. When linking/unlinking, these files are symlinked/removed alongside `settings.local.json`.
 
-**Env Mode**: The `env` command sets `CLAUDE_CONFIG_DIR` directly via `os.Setenv` and prints a confirmation message. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config. No symlinks needed. Requires a profile name argument.
+**Env Mode**: The `env` command prints `export CLAUDE_CONFIG_DIR=<path>` for use with `eval $(jamshid env <profile>)`. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config. No symlinks needed. Requires a profile name argument.

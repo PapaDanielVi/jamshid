@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
 	"github.com/PapaDanielVi/jamshid/internal/pkg/constants"
@@ -258,14 +256,6 @@ func UnlinkProfile(cfg *config.Config, cwd string) error {
 	return nil
 }
 
-func IsGitRepo(dir string) bool {
-	cmd := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree")
-	if err := cmd.Run(); err != nil {
-		return false
-	}
-	return true
-}
-
 func GetActiveProfile(cfg *config.Config, cwd string) string {
 	hash := hash.DirHash(cwd)
 	if entry, ok := cfg.LinkedDirs[hash]; ok {
@@ -283,21 +273,3 @@ func ProfilePath(name string) (string, error) {
 	return filepath.Join(dir, constants.DirClaude), nil
 }
 
-// EnvVar returns the shell export statement for CLAUDE_CONFIG_DIR for the given profile.
-func EnvVar(name string) (string, error) {
-	path, err := ProfilePath(name)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("CLAUDE_CONFIG_DIR=%s", path), nil
-}
-
-// Ensure MCP config file names are valid (used for validation).
-func IsValidMCPConfigFile(name string) bool {
-	for _, f := range mcpConfigFiles {
-		if strings.EqualFold(name, f) {
-			return true
-		}
-	}
-	return false
-}

@@ -9,10 +9,8 @@ type McpServer struct {
 
 // Profile holds configuration for a Claude Code profile.
 type Profile struct {
-	Name         string            `json:"name"`
-	EnvVars      map[string]string `json:"env_vars,omitempty"`
-	ClaudeConfig map[string]any    `json:"claude_config,omitempty"`
-	McpServers   []McpServer       `json:"mcp_servers,omitempty"`
-	Model        string            `json:"model,omitempty"`
-	Timeout      string            `json:"timeout,omitempty"`
+	Name       string            `json:"name"`
+	EnvVars    map[string]string `json:"env_vars,omitempty"`
+	McpServers []McpServer       `json:"mcp_servers,omitempty"`
+	Model      string            `json:"model,omitempty"`
 }
