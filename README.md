@@ -16,6 +16,8 @@ Jamshid (also spelled Jamshēd) was a mythical Persian king who possessed a magi
 
 - **Profile Management**: Create, delete, and list profiles
 - **Symlink Switching**: Link profiles to project directories via symlinks (not copies)
+- **MCP Server Support**: Automatically copies and links MCP server config files (`.mcp.json`, `mcp.json`, `mcp_servers.json`)
+- **Env Mode**: Set `CLAUDE_CONFIG_DIR` environment variable to point Claude Code at a profile directory — no symlinks needed
 - **Git Vault**: Sync profiles across machines via git
 - **TUI**: Beautiful terminal UI built with Bubble Tea
 
@@ -45,48 +47,42 @@ Download the latest release for your platform from the [Releases](https://github
 jamshid add personal
 jamshid add work
 
-# Set global profile
-jamshid global personal
+# List profiles
+jamshid list
 
-# Link profile to current directory
+# Link profile to current directory (creates symlinks)
 cd /path/to/project
 jamshid link work
 
-# Link profile interactively (select from list)
-jamshid link
+# Or use env mode (no symlinks — sets CLAUDE_CONFIG_DIR)
+eval $(jamshid env work)
+claude
 
-# List profiles
-jamshid list
+# Unlink
+jamshid unlink
 
 # Show help
 jamshid help
 
 # Check version
 jamshid --version
-
-# Generate bash completion
-jamshid completion bash > /etc/bash_completion.d/jamshid
-
-# Launch TUI
-jamshid
 ```
 
 ## CLI Reference
 
-| Command                      | Description                                           |
-| ---------------------------- | ----------------------------------------------------- |
-| `jamshid`                    | Launch interactive TUI                                |
-| `jamshid add <name>`         | Create new profile (imports settings if found)        |
-| `jamshid delete <name>`      | Delete profile                                        |
-| `jamshid list`               | List all profiles with active status                  |
-| `jamshid link [profile]`     | Link profile to cwd (interactive if no profile given) |
-| `jamshid unlink`             | Remove profile symlink from cwd                       |
-| `jamshid global <profile>`   | Set global fallback profile                           |
-| `jamshid vault init <url>`   | Configure git vault remote                            |
-| `jamshid vault sync`         | Trigger git sync                                      |
-| `jamshid version`            | Print version                                         |
-| `jamshid help`               | Show help message                                     |
-| `jamshid completion bash`    | Generate bash completion script                       |
+| Command                    | Description                                           |
+| -------------------------- | ----------------------------------------------------- |
+| `jamshid`                  | Launch interactive TUI                                |
+| `jamshid add <name>`       | Create new profile (imports settings + MCP configs)   |
+| `jamshid delete <name>`    | Delete profile                                        |
+| `jamshid list`             | List all profiles with their paths                    |
+| `jamshid link [profile]`   | Link profile to cwd via symlinks (interactive)        |
+| `jamshid unlink`           | Remove profile symlinks from cwd                      |
+| `jamshid env [profile]`    | Print `CLAUDE_CONFIG_DIR` export for a profile        |
+| `jamshid vault init <url>` | Configure git vault remote                            |
+| `jamshid vault sync`       | Trigger git sync                                      |
+| `jamshid version`          | Print version                                         |
+| `jamshid help`             | Show help message                                     |
 
 ## Examples
 
@@ -97,6 +93,35 @@ cd /path/to/project/with/.claude/settings.local.json
 jamshid add myproject
 # Output: Found existing .claude/settings.local.json. Create profile from this? (y/n): y
 # Output: Profile "myproject" created
+```
+
+When importing, Jamshid copies the entire `.claude` directory contents **and** looks for MCP config files (`.mcp.json`, `mcp.json`, `mcp_servers.json`) in the project root, copying them into the profile directory.
+
+### Link a profile (symlink mode)
+
+```bash
+cd /path/to/project
+jamshid link work
+# Creates symlinks:
+#   .claude/settings.local.json -> ~/.config/jamshid/profiles/work/.claude/settings.local.json
+#   .mcp.json -> ~/.config/jamshid/profiles/work/.mcp.json  (if exists)
+```
+
+### Use env mode (no symlinks)
+
+```bash
+# Set CLAUDE_CONFIG_DIR for the current shell session
+eval $(jamshid env work)
+# Output: export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/work/.claude
+
+# Now run Claude Code — it will use the profile's config directory
+claude
+
+# Print all profile env vars
+eval $(jamshid env)
+# Output:
+#   export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/personal/.claude
+#   export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/work/.claude
 ```
 
 ### Link a profile interactively
@@ -114,12 +139,23 @@ jamshid link
 
 ## How It Works
 
-Jamshid uses symlinks to switch between Claude Code configurations:
+Jamshid offers two ways to use profiles:
+
+### Symlink Mode (`link` / `unlink`)
 
 1. Profiles are stored in `~/.config/jamshid/profiles/<name>/`
-2. When you run `jamshid link <profile>`, it creates a symlink: `<cwd>/.claude/settings.local.json` → `~/.config/jamshid/profiles/<name>/.claude/settings.local.json`
+2. `jamshid link <profile>` creates symlinks:
+   - `<cwd>/.claude/settings.local.json` → `~/.config/jamshid/profiles/<name>/.claude/settings.local.json`
+   - `<cwd>/.mcp.json` → `~/.config/jamshid/profiles/<name>/.mcp.json` (if MCP configs exist)
 3. The active profile for a directory is tracked via a hash of the directory path
 4. `.gitignore` is automatically updated to exclude `settings.local.json`
+
+### Env Mode (`env`)
+
+1. `jamshid env <profile>` prints `export CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/<name>/.claude`
+2. Use `eval $(jamshid env <profile>)` in your shell to set the variable
+3. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config — no symlinks needed
+4. This is ideal for users who prefer environment-based config switching
 
 ## Project Structure
 
@@ -134,7 +170,7 @@ jamshid/
 │   │   ├── gitvault/         # Git vault sync
 │   │   ├── hash/             # Directory hashing
 │   │   ├── models/           # Profile and MCP server types
-│   │   └── profile/          # Profile CRUD and symlink management
+│   │   └── profile/          # Profile CRUD, symlinks, MCP, env
 │   └── tui/                  # Bubble Tea TUI
 ├── Formula/                  # Homebrew formula
 ├── Makefile                  # Build, test, lint

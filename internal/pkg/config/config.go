@@ -20,11 +20,10 @@ type DirEntry struct {
 }
 
 type Config struct {
-	Version       string                    `json:"version"`
-	GlobalProfile string                    `json:"global_profile,omitempty"`
-	Profiles      map[string]models.Profile `json:"profiles,omitempty"`
-	VaultRemote   string                    `json:"vault_remote,omitempty"`
-	LinkedDirs    map[string]DirEntry       `json:"linked_dirs,omitempty"`
+	Version     string                    `json:"version"`
+	Profiles    map[string]models.Profile `json:"profiles,omitempty"`
+	VaultRemote string                    `json:"vault_remote,omitempty"`
+	LinkedDirs  map[string]DirEntry       `json:"linked_dirs,omitempty"`
 }
 
 func JamshidDir() (string, error) {

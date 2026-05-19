@@ -10,7 +10,6 @@ import (
 
 func TestLoadSaveConfig(t *testing.T) {
 	dir := t.TempDir()
-	// Override config path for testing
 	origHome := os.Getenv("HOME")
 	_ = os.Setenv("HOME", dir)
 	defer func() { _ = os.Setenv("HOME", origHome) }()
@@ -23,7 +22,6 @@ func TestLoadSaveConfig(t *testing.T) {
 		t.Errorf("Version = %q, want %q", cfg.Version, "1")
 	}
 
-	cfg.GlobalProfile = "personal"
 	cfg.Profiles["test"] = models.Profile{Name: "test"}
 	if err := SaveConfig(cfg); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
@@ -33,8 +31,8 @@ func TestLoadSaveConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig second: %v", err)
 	}
-	if cfg2.GlobalProfile != "personal" {
-		t.Errorf("GlobalProfile = %q, want %q", cfg2.GlobalProfile, "personal")
+	if _, ok := cfg2.Profiles["test"]; !ok {
+		t.Error("profile 'test' not persisted")
 	}
 }
 

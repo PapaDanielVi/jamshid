@@ -70,21 +70,19 @@ func executeCommand(cfg *config.Config, cmd string, args []string, cwd string) {
 	case "delete":
 		cmdDelete(cfg, args)
 	case "list":
-		cmdList(cfg, cwd)
+		cmdList(cfg)
 	case "link":
 		cmdLink(cfg, args, cwd)
 	case "unlink":
 		cmdUnlink(cfg, cwd)
-	case "global":
-		cmdGlobal(cfg, args)
+	case "env":
+		cmdEnv(cfg, args)
 	case "vault":
 		cmdVault(cfg, args)
 	case "version", "--version", "-v":
 		fmt.Printf("jamshid %s\n", Version)
 	case "help", "--help", "-h":
 		cmdHelp()
-	case "completion":
-		cmdCompletion(args)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmd)
 		os.Exit(1)
@@ -184,22 +182,17 @@ func cmdDelete(cfg *config.Config, args []string) {
 	fmt.Printf("Profile %q deleted\n", name)
 }
 
-func cmdList(cfg *config.Config, cwd string) {
-	active := profile.GetActiveProfile(cfg, cwd)
+func cmdList(cfg *config.Config) {
 	if len(cfg.Profiles) == 0 {
 		fmt.Println("No profiles configured")
 		return
 	}
 	for _, name := range profile.ListProfiles(cfg) {
-		marker := "  "
-		if name == active {
-			marker = "* "
+		dir, err := profile.ProfilePath(name)
+		if err != nil {
+			dir = "(unknown path)"
 		}
-		if name == cfg.GlobalProfile {
-			fmt.Printf("%s%s (global)\n", marker, name)
-		} else {
-			fmt.Printf("%s%s\n", marker, name)
-		}
+		fmt.Printf("  %s  (%s)\n", name, dir)
 	}
 }
 
@@ -288,55 +281,36 @@ func cmdUnlink(cfg *config.Config, cwd string) {
 	fmt.Printf("Unlinked profile from %s\n", cwd)
 }
 
-func cmdGlobal(cfg *config.Config, args []string) {
-	var name string
+func cmdEnv(cfg *config.Config, args []string) {
 	if len(args) < 1 {
-		profiles := profile.ListProfiles(cfg)
-		if len(profiles) == 0 {
-			fmt.Println("No profiles available.")
+		// Print all profiles' env vars
+		envs, err := profile.EnvVarsForAll(cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("Available profiles:")
-		for i, p := range profiles {
-			marker := "  "
-			if p == cfg.GlobalProfile {
-				marker = "* "
-			}
-			fmt.Printf("  %d: %s%s\n", i+1, marker, p)
+		if len(envs) == 0 {
+			fmt.Println("No profiles configured.")
+			os.Exit(1)
 		}
-		fmt.Print("Select profile to set as global (number or name): ")
-		var input string
-		_, _ = fmt.Scanln(&input)
-
-		name = input
-		if _, ok := cfg.Profiles[name]; !ok {
-			found := false
-			for i, p := range profiles {
-				if input == fmt.Sprintf("%d", i+1) {
-					name = p
-					found = true
-					break
-				}
-			}
-			if !found {
-				fmt.Fprintf(os.Stderr, "Error: profile %q not found\n", input)
-				os.Exit(1)
-			}
+		for _, env := range envs {
+			fmt.Printf("export %s\n", env)
 		}
-	} else {
-		name = args[0]
+		return
 	}
 
+	name := args[0]
 	if _, ok := cfg.Profiles[name]; !ok {
 		fmt.Fprintf(os.Stderr, "Error: profile %q not found\n", name)
 		os.Exit(1)
 	}
-	cfg.GlobalProfile = name
-	if err := config.SaveConfig(cfg); err != nil {
+
+	env, err := profile.EnvVar(name)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Global profile set to %q\n", name)
+	fmt.Printf("export %s\n", env)
 }
 
 func cmdVault(cfg *config.Config, args []string) {
@@ -374,57 +348,18 @@ func cmdHelp() {
 	fmt.Println("jamshid - Claude Code profile manager")
 	fmt.Println("\nUsage: jamshid <command> [arguments]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  add <name>          Create a new profile")
+	fmt.Println("  add <name>          Create a new profile (imports settings + MCP configs if found)")
 	fmt.Println("  delete <name>       Delete a profile")
 	fmt.Println("  list                List all profiles")
-	fmt.Println("  link [profile]      Link profile to current directory (interactive if no profile given)")
-	fmt.Println("  unlink              Unlink profile from current directory")
-	fmt.Println("  global <profile>    Set global profile")
+	fmt.Println("  link [profile]      Link profile to cwd via symlinks (interactive if no profile given)")
+	fmt.Println("  unlink              Unlink profile symlinks from cwd")
+	fmt.Println("  env [profile]       Print CLAUDE_CONFIG_DIR export for a profile (or all profiles)")
 	fmt.Println("  vault <init|sync>   Manage Git vault")
-	fmt.Println("  help, --help, -h    Show this help message")
-	fmt.Println("  completion bash     Generate bash completion script")
-}
-
-func cmdCompletion(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: jamshid completion bash")
-		os.Exit(1)
-	}
-	switch args[0] {
-	case "bash":
-		generateBashCompletion()
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown shell: %s\n", args[0])
-		os.Exit(1)
-	}
-}
-
-func generateBashCompletion() {
-	script := `# bash completion for jamshid
-_jamshid() {
-    local cur prev words cword
-    _init_completion || return
-
-    local commands="add delete list link unlink global vault help completion"
-    local profiles=$(jamshid list 2>/dev/null | sed 's/^[* ] //')
-
-    if [[ $cword -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "$commands" -- "$cur"))
-        return
-    fi
-
-    case ${words[1]} in
-        link|global|delete)
-            COMPREPLY=($(compgen -W "$profiles" -- "$cur"))
-            ;;
-        vault)
-            COMPREPLY=($(compgen -W "init sync" -- "$cur"))
-            ;;
-    esac
-}
-complete -F _jamshid jamshid
-`
-	fmt.Print(script)
+	fmt.Println("  version             Print version")
+	fmt.Println("  help                Show this help message")
+	fmt.Println("\nEnv usage:")
+	fmt.Println("  eval $(jamshid env personal)   # Set CLAUDE_CONFIG_DIR for current shell")
+	fmt.Println("  eval $(jamshid env)            # Print exports for all profiles")
 }
 
 func isLinked(cwd string, cfg *config.Config) bool {

@@ -64,7 +64,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Git Vault**: Check `gh` CLI auth with `exec.LookPath("gh")` (not `exec.Command("which", "gh")`) for cross-platform compatibility. Handle both "main" and "master" branch names.
 
-**Symlinks**: When linking profiles, handle cases where `.claude` exists as real directory (backup to `.bak`) vs symlink (remove and replace). The symlink points to `settings.local.json`, not the `.claude` directory itself.
+**Symlinks**: When linking profiles, handle cases where `.claude` exists as real directory (backup to `.bak`) vs symlink (remove and replace). The symlink points to `settings.local.json`, not the `.claude` directory itself. MCP config files (`.mcp.json`, `mcp.json`, `mcp_servers.json`) are also symlinked from the project root.
 
 **Linting**: `errcheck` linter requires checking return values of `os.Setenv`, `os.MkdirAll`, `os.Remove`, etc. Use `_ =` prefix if intentionally ignoring.
 
@@ -77,3 +77,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 **Config Writes**: `SaveConfig` uses atomic writes (temp file + `os.Rename`) to prevent corruption. Never write directly to the config path.
 
 **Version**: Build-time version is set via `-ldflags "-X main.Version=$(VERSION)"`. The `Makefile` extracts it from git tags. GoReleaser passes `{{ .Version }}`. Default is `"dev"`.
+
+**MCP Configs**: Known MCP config file names are `.mcp.json`, `mcp.json`, `mcp_servers.json`. When adding a profile from an existing `.claude` directory, Jamshid also looks for these files in the project root (parent of `.claude`) and copies them into the profile directory. When linking/unlinking, these files are symlinked/removed alongside `settings.local.json`.
+
+**Env Mode**: The `env` command prints `export CLAUDE_CONFIG_DIR=<path>` for a profile. Users run `eval $(jamshid env <name>)` to set the variable in their shell. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config. No symlinks needed. Passing no argument prints exports for all profiles.

@@ -44,7 +44,7 @@ var commands = []listItem{
 	{title: "list", description: "List all profiles"},
 	{title: "link", description: "Link profile to current directory"},
 	{title: "unlink", description: "Unlink profile from current directory"},
-	{title: "global", description: "Set global profile"},
+	{title: "env", description: "Set CLAUDE_CONFIG_DIR for a profile"},
 	{title: "vault", description: "Manage Git vault"},
 	{title: "help", description: "Show help"},
 }
@@ -129,7 +129,7 @@ func (m *tuiModel) updateCommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 					switch item.title {
 					case "add":
 						return m, tea.Quit
-					case "delete", "link", "global":
+					case "delete", "link", "env":
 						m.state = ViewProfiles
 						m.setProfileItems()
 						return m, nil

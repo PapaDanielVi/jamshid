@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
 	"github.com/PapaDanielVi/jamshid/internal/pkg/constants"
@@ -21,6 +22,14 @@ var (
 	ErrEmptyName       = errors.New("profile name cannot be empty")
 	ErrSettingsExists  = errors.New(".claude/settings.local.json already exists, use --force to overwrite")
 )
+
+// mcpConfigFiles lists known MCP config file names that may appear
+// inside a .claude directory or project root.
+var mcpConfigFiles = []string{
+	".mcp.json",
+	"mcp.json",
+	"mcp_servers.json",
+}
 
 func ProfileDir(name string) (string, error) {
 	dir, err := config.JamshidDir()
@@ -55,6 +64,9 @@ func AddProfile(cfg *config.Config, name string, importPath ...string) error {
 			if err := copyDir(src, filepath.Join(dir, constants.DirClaude)); err != nil {
 				return fmt.Errorf("copy .claude dir: %w", err)
 			}
+			// Also copy MCP config files from the project root (parent of .claude dir)
+			srcDir := filepath.Dir(src)
+			copyMcpConfigs(srcDir, dir)
 		} else {
 			data, err := os.ReadFile(src)
 			if err != nil {
@@ -76,6 +88,20 @@ func AddProfile(cfg *config.Config, name string, importPath ...string) error {
 		}
 	}
 	return nil
+}
+
+// copyMcpConfigs copies known MCP config files from srcDir to dstDir.
+func copyMcpConfigs(srcDir, dstDir string) {
+	for _, name := range mcpConfigFiles {
+		srcFile := filepath.Join(srcDir, name)
+		if _, err := os.Stat(srcFile); err == nil {
+			data, err := os.ReadFile(srcFile)
+			if err != nil {
+				continue
+			}
+			_ = os.WriteFile(filepath.Join(dstDir, name), data, constants.DefaultFilePerm)
+		}
+	}
 }
 
 func copyDir(src, dst string) error {
@@ -139,6 +165,19 @@ func ListProfiles(cfg *config.Config) []string {
 	return names
 }
 
+// mcpSymlinkTargets returns the MCP config symlink targets for a profile.
+// Returns a map of link path (in cwd) -> target path (in profile dir).
+func mcpSymlinkTargets(cwd, profileDir string) map[string]string {
+	targets := make(map[string]string)
+	for _, name := range mcpConfigFiles {
+		target := filepath.Join(profileDir, name)
+		if _, err := os.Stat(target); err == nil {
+			targets[filepath.Join(cwd, name)] = target
+		}
+	}
+	return targets
+}
+
 func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error {
 	if _, exists := cfg.Profiles[profileName]; !exists {
 		return fmt.Errorf("profile %q: %w", profileName, ErrProfileNotFound)
@@ -182,12 +221,19 @@ func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error 
 		return fmt.Errorf("create symlink: %w", err)
 	}
 
+	// Symlink MCP config files
+	for linkPath, targetPath := range mcpSymlinkTargets(cwd, dir) {
+		_ = os.Remove(linkPath)
+		_ = os.Symlink(targetPath, linkPath)
+	}
+
 	cfg.LinkedDirs[hash] = config.DirEntry{Path: cwd, Hash: hash, Profile: profileName}
 	return nil
 }
 
 func UnlinkProfile(cfg *config.Config, cwd string) error {
 	hash := hash.DirHash(cwd)
+	entry, hasEntry := cfg.LinkedDirs[hash]
 	delete(cfg.LinkedDirs, hash)
 
 	claudeLink := filepath.Join(cwd, constants.DirClaude, constants.FileSettingsLocal)
@@ -196,6 +242,19 @@ func UnlinkProfile(cfg *config.Config, cwd string) error {
 			return fmt.Errorf("remove symlink: %w", err)
 		}
 	}
+
+	// Remove MCP config symlinks
+	if hasEntry {
+		dir, err := ProfileDir(entry.Profile)
+		if err == nil {
+			for linkPath := range mcpSymlinkTargets(cwd, dir) {
+				if info, err := os.Lstat(linkPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
+					_ = os.Remove(linkPath)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -212,5 +271,46 @@ func GetActiveProfile(cfg *config.Config, cwd string) string {
 	if entry, ok := cfg.LinkedDirs[hash]; ok {
 		return entry.Profile
 	}
-	return cfg.GlobalProfile
+	return ""
+}
+
+// ProfilePath returns the filesystem path to a profile's config directory.
+func ProfilePath(name string) (string, error) {
+	dir, err := ProfileDir(name)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, constants.DirClaude), nil
+}
+
+// EnvVar returns the shell export statement for CLAUDE_CONFIG_DIR for the given profile.
+func EnvVar(name string) (string, error) {
+	path, err := ProfilePath(name)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("CLAUDE_CONFIG_DIR=%s", path), nil
+}
+
+// EnvVarsForAll returns CLAUDE_CONFIG_DIR export statements for all profiles.
+func EnvVarsForAll(cfg *config.Config) ([]string, error) {
+	var lines []string
+	for _, name := range ListProfiles(cfg) {
+		env, err := EnvVar(name)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, env)
+	}
+	return lines, nil
+}
+
+// Ensure MCP config file names are valid (used for validation).
+func IsValidMCPConfigFile(name string) bool {
+	for _, f := range mcpConfigFiles {
+		if strings.EqualFold(name, f) {
+			return true
+		}
+	}
+	return false
 }
