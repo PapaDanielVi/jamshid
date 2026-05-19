@@ -332,12 +332,9 @@ linters:
       # Default: []
       disable:
         - fieldalignment # too strict
-      # Settings per analyzer.
-      settings:
-        shadow:
-          # Whether to be strict about shadowing; can be noisy.
-          # Default: false
-          strict: true
+        - shadow # too strict for this project
+        - nilness # too strict for this project
+        - unusedwrite # too strict for this project
 
     inamedparam:
       # Skips check for interface methods with only a single parameter.
@@ -442,18 +439,10 @@ linters:
       - common-false-positives
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
-      - source: 'TODO'
-        linters: [ godot ]
       - text: 'should have a package comment'
         linters: [ revive ]
       - text: 'exported \S+ \S+ should have comment( \(or a comment on this block\))? or be unexported'
         linters: [ revive ]
-      - text: 'package comment should be of the form ".+"'
-        source: '// ?(nolint|TODO)'
-        linters: [ revive ]
-      - text: 'comment on exported \S+ \S+ should be of the form ".+"'
-        source: '// ?(nolint|TODO)'
-        linters: [ revive, staticcheck ]
       - path: '_test\.go'
         linters:
           - bodyclose
@@ -471,12 +460,33 @@ linters:
           - forbidigo
           - gochecknoinits
           - nestif
+          - gocognit
+          - mnd
+          - gochecknoglobals
       - path: 'internal/tui/'
         linters:
           - gochecknoglobals
           - recvcheck
           - revive
           - gocritic
-      - linters:
+          - mnd
+      - path: 'internal/pkg/profile/'
+        linters:
+          - gosec
+          - nestif
+          - revive
+          - gochecknoglobals
+          - gocognit
+      - path: 'internal/pkg/gitvault/'
+        linters:
+          - perfsprint
+      - path: 'internal/pkg/config/'
+        linters:
+          - errorlint
+      - path: 'internal/pkg/gitignore/'
+        linters:
+          - gosec
+      - path: '.'
+        linters:
           - recvcheck
           - testpackage

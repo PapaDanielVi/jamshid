@@ -66,7 +66,7 @@ func LoadConfig() (*Config, error) {
 
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrConfigCorrupt, err)
+		return nil, fmt.Errorf("%w: %s", ErrConfigCorrupt, err)
 	}
 	if cfg.Profiles == nil {
 		cfg.Profiles = make(map[string]models.Profile)

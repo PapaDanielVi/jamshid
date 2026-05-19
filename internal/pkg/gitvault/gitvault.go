@@ -1,6 +1,7 @@
 package gitvault
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,9 +12,9 @@ import (
 
 func CheckGhAuth() error {
 	if _, err := exec.LookPath("gh"); err != nil {
-		return fmt.Errorf("`gh` CLI is not installed - install it from https://cli.github.com")
+		return fmt.Errorf("gh CLI is not installed - install it from https://cli.github.com")
 	}
-	cmd := exec.Command("gh", "auth", "status")
+	cmd := exec.CommandContext(context.Background(), "gh", "auth", "status")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("`gh` is not authenticated - run `gh auth login` first")
 	}
@@ -78,7 +79,7 @@ func SyncPull() error {
 }
 
 func runGit(dir string, args ...string) error {
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(context.Background(), "git", args...)
 	cmd.Dir = dir
 	return cmd.Run()
 }

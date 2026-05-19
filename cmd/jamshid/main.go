@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -156,7 +157,7 @@ func cmdDelete(cfg *config.Config, args []string) {
 		if _, ok := cfg.Profiles[name]; !ok {
 			found := false
 			for i, p := range profiles {
-				if input == fmt.Sprintf("%d", i+1) {
+				if input == strconv.Itoa(i+1) {
 					name = p
 					found = true
 					break
@@ -225,7 +226,7 @@ func cmdLink(cfg *config.Config, args []string, cwd string) {
 		if _, ok := cfg.Profiles[profileName]; !ok {
 			found := false
 			for i, p := range profiles {
-				if input == fmt.Sprintf("%d", i+1) {
+				if input == strconv.Itoa(i+1) {
 					profileName = p
 					found = true
 					break

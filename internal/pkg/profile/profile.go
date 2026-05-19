@@ -29,6 +29,7 @@ var mcpConfigFiles = []string{
 	"mcp_servers.json",
 }
 
+// ProfileDir returns the directory path for a profile.
 func ProfileDir(name string) (string, error) {
 	dir, err := config.JamshidDir()
 	if err != nil {
