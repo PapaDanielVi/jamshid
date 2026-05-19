@@ -156,8 +156,8 @@ func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error 
 		return err
 	}
 
-	claudeTarget := filepath.Join(dir, ".claude")
-	claudeLink := filepath.Join(cwd, ".claude")
+	claudeTarget := filepath.Join(dir, ".claude", "settings.local.json")
+	claudeLink := filepath.Join(cwd, ".claude", "settings.local.json")
 
 	// If .claude exists as a real directory, handle it
 	if info, err := os.Lstat(claudeLink); err == nil {
@@ -191,7 +191,7 @@ func UnlinkProfile(cfg *config.Config, cwd string) error {
 	hash := hash.DirHash(cwd)
 	delete(cfg.LinkedDirs, hash)
 
-	claudeLink := filepath.Join(cwd, ".claude")
+	claudeLink := filepath.Join(cwd, ".claude", "settings.local.json")
 	if info, err := os.Lstat(claudeLink); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		if err := os.Remove(claudeLink); err != nil {
 			return fmt.Errorf("remove symlink: %w", err)
