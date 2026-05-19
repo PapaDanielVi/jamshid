@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
+
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -17,6 +20,7 @@ const (
 	ViewProfiles
 	ViewTextInput
 	ViewVaultSubcommands
+	ViewResult
 )
 
 type listItem struct {
@@ -41,6 +45,7 @@ type tuiModel struct {
 	selectedSubcmd  string
 	textInputPrompt string
 	focusTextInput  bool
+	resultText      string
 	width           int
 	height          int
 }
@@ -61,7 +66,7 @@ var vaultSubcommands = []listItem{
 	{title: "sync", description: "Sync vault with remote"},
 }
 
-func NewTUI(cfg *config.Config, cwd string) tuiModel {
+func NewTUI(cfg *config.Config, cwd string) *tuiModel {
 	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 80, 24)
 	l.Title = "Jamshid Commands"
 	l.SetShowStatusBar(true)
@@ -73,7 +78,7 @@ func NewTUI(cfg *config.Config, cwd string) tuiModel {
 	ti.SetWidth(40)
 
 	active := profile.GetActiveProfile(cfg, cwd)
-	m := tuiModel{
+	m := &tuiModel{
 		state:         ViewCommands,
 		list:          l,
 		textInput:     ti,
@@ -122,7 +127,7 @@ func (m tuiModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -145,6 +150,8 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateTextInput(msg)
 	case ViewVaultSubcommands:
 		return m.updateVaultSubcommands(msg)
+	case ViewResult:
+		return m.updateResult(msg)
 	default:
 		return m, nil
 	}
@@ -177,8 +184,18 @@ func (m *tuiModel) updateCommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.state = ViewProfiles
 						m.setProfileItems()
 						return m, nil
-					case "list", "unlink", "help":
-						return m, tea.Quit
+					case "list":
+						m.resultText = m.buildListResult()
+						m.state = ViewResult
+						return m, nil
+					case "unlink":
+						m.resultText = m.buildUnlinkResult()
+						m.state = ViewResult
+						return m, nil
+					case "help":
+						m.resultText = m.buildHelpResult()
+						m.state = ViewResult
+						return m, nil
 					case "vault":
 						m.state = ViewVaultSubcommands
 						m.setVaultSubcommandItems()
@@ -209,6 +226,7 @@ func (m *tuiModel) updateProfiles(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if selected != nil {
 				if item, ok := selected.(listItem); ok {
 					m.selectedProfile = item.title
+					m.quitting = true
 					return m, tea.Quit
 				}
 			}
@@ -234,6 +252,7 @@ func (m *tuiModel) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			val := m.textInput.Value()
 			if val != "" {
 				m.selectedProfile = val
+				m.quitting = true
 				return m, tea.Quit
 			}
 		}
@@ -266,6 +285,7 @@ func (m *tuiModel) updateVaultSubcommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.focusTextInput = true
 						return m, nil
 					}
+					m.quitting = true
 					return m, tea.Quit
 				}
 			}
@@ -274,6 +294,65 @@ func (m *tuiModel) updateVaultSubcommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.list, _ = m.list.Update(msg)
 	return m, nil
+}
+
+func (m *tuiModel) updateResult(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		default:
+			m.state = ViewCommands
+			m.setCommandItems()
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+func (m *tuiModel) buildListResult() string {
+	profiles := profile.ListProfiles(m.cfg)
+	if len(profiles) == 0 {
+		return "No profiles configured"
+	}
+	var lines []string
+	for _, name := range profiles {
+		dir, err := profile.ProfilePath(name)
+		if err != nil {
+			dir = "(unknown path)"
+		}
+		lines = append(lines, fmt.Sprintf("  %s  (%s)", name, dir))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m *tuiModel) buildUnlinkResult() string {
+	if err := profile.UnlinkProfile(m.cfg, m.cwd); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	if err := config.SaveConfig(m.cfg); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	return fmt.Sprintf("Unlinked profile from %s", m.cwd)
+}
+
+func (m *tuiModel) buildHelpResult() string {
+	return `jamshid - Claude Code profile manager
+
+Usage: jamshid <command> [arguments]
+
+Commands:
+  add <name>          Create a new profile
+  delete <name>       Delete a profile
+  list                List all profiles
+  link [profile]      Link profile to cwd
+  unlink              Unlink profile from cwd
+  env <profile>       Set CLAUDE_CONFIG_DIR
+  vault <init|sync>   Manage Git vault
+  version             Print version
+  help                Show this help message`
 }
 
 func (m tuiModel) View() tea.View {
@@ -291,6 +370,8 @@ func (m tuiModel) View() tea.View {
 		content = m.textInputView()
 	case ViewVaultSubcommands:
 		content = m.vaultSubcommandsView()
+	case ViewResult:
+		content = m.resultView()
 	default:
 		content = "View not implemented\n"
 	}
@@ -322,6 +403,12 @@ func (m tuiModel) vaultSubcommandsView() string {
 	header := titleStyle.Render("Jamshid - Vault")
 	help := helpStyle.Render("↑/↓: navigate, enter: select, esc: back, q: quit")
 	return lipgloss.JoinVertical(lipgloss.Left, header, "", m.list.View(), "", help)
+}
+
+func (m tuiModel) resultView() string {
+	header := titleStyle.Render("Jamshid - Result")
+	help := helpStyle.Render("press any key to continue, q: quit")
+	return lipgloss.JoinVertical(lipgloss.Left, header, "", m.resultText, "", help)
 }
 
 // SelectedCommand returns the selected command, its argument (profile name or
