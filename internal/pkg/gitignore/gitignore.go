@@ -4,28 +4,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/PapaDanielVi/jamshid/internal/pkg/constants"
 )
 
-const gitignoreEntry = ".claude/settings.local.json"
+const gitignoreEntry = constants.DirClaude + "/" + constants.FileSettingsLocal
 
-// EnsureGitignore adds .claude/settings.local.json to .gitignore if not present.
 func EnsureGitignore(cwd string) error {
 	gitignore := filepath.Join(cwd, ".gitignore")
 
 	var lines []string
-	if data, err := os.ReadFile(gitignore); err == nil {
+	data, err := os.ReadFile(gitignore)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err == nil {
 		lines = strings.Split(string(data), "\n")
 	}
 
-	// Check if entry already exists
 	for _, line := range lines {
 		if strings.TrimSpace(line) == gitignoreEntry {
 			return nil
 		}
 	}
 
-	// Append entry
-	f, err := os.OpenFile(gitignore, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(gitignore, os.O_APPEND|os.O_CREATE|os.O_WRONLY, constants.DefaultFilePerm)
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
+	"github.com/PapaDanielVi/jamshid/internal/pkg/constants"
 	"github.com/PapaDanielVi/jamshid/internal/pkg/gitvault"
 	"github.com/PapaDanielVi/jamshid/internal/pkg/profile"
 	"github.com/PapaDanielVi/jamshid/internal/tui"
@@ -23,23 +24,23 @@ func main() {
 		cfg.LinkedDirs = make(map[string]config.DirEntry)
 	}
 
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: get working directory: %v\n", err)
+		os.Exit(1)
+	}
 
-	// Check if current directory is linked (task 8)
 	checkLinkedDir(cfg, cwd)
 
 	if len(os.Args) < 2 {
-		// Launch TUI for command selection
 		m := tui.NewTUI(cfg, cwd)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		// After TUI quits, execute selected command
 		selectedCmd, selectedProfile := m.SelectedCommand()
 		if selectedCmd != "" {
-			// If a profile was selected, pass it as an argument
 			args := []string{}
 			if selectedProfile != "" {
 				args = append(args, selectedProfile)
@@ -49,23 +50,20 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Execute command from CLI args
 	executeCommand(cfg, os.Args[1], os.Args[2:], cwd)
 }
 
-// checkLinkedDir checks if current directory is linked and prints status.
 func checkLinkedDir(cfg *config.Config, cwd string) {
-	hash := profile.GetActiveProfile(cfg, cwd)
-	if hash != "" {
-		fmt.Printf("Linked to profile: %s\n", hash)
+	name := profile.GetActiveProfile(cfg, cwd)
+	if name != "" {
+		fmt.Printf("Linked to profile: %s\n", name)
 	}
 }
 
-// executeCommand runs the selected command.
 func executeCommand(cfg *config.Config, cmd string, args []string, cwd string) {
 	switch cmd {
 	case "add":
-		cmdAdd(cfg, args)
+		cmdAdd(cfg, args, cwd)
 	case "delete":
 		cmdDelete(cfg, args)
 	case "list":
@@ -88,35 +86,32 @@ func executeCommand(cfg *config.Config, cmd string, args []string, cwd string) {
 	}
 }
 
-func cmdAdd(cfg *config.Config, args []string) {
+func cmdAdd(cfg *config.Config, args []string, cwd string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: jamshid add <name>")
 		os.Exit(1)
 	}
 	name := args[0]
-	cwd, _ := os.Getwd()
 
 	var importPath string
-	settingsLocal := filepath.Join(cwd, ".claude", "settings.local.json")
+	settingsLocal := filepath.Join(cwd, constants.DirClaude, constants.FileSettingsLocal)
 
-	// Check for existing settings.local.json in cwd
 	if _, err := os.Stat(settingsLocal); err == nil {
 		if !isLinked(cwd, cfg) {
 			fmt.Printf("Found existing %s. Create profile from this? (y/n): ", settingsLocal)
 			var answer string
-			fmt.Scanln(&answer)
+			_, _ = fmt.Scanln(&answer)
 			if answer == "y" || answer == "Y" {
-				importPath = filepath.Join(cwd, ".claude")
+				importPath = filepath.Join(cwd, constants.DirClaude)
 			}
 		}
 	}
 
-	// If no settings.local.json, ask user for file path
 	if importPath == "" {
 		if _, err := os.Stat(settingsLocal); os.IsNotExist(err) {
 			fmt.Print("No .claude/settings.local.json found. Provide a file path to import (leave empty to skip): ")
 			var pathInput string
-			fmt.Scanln(&pathInput)
+			_, _ = fmt.Scanln(&pathInput)
 			if pathInput != "" {
 				if _, err := os.Stat(pathInput); err == nil {
 					importPath = pathInput
@@ -141,7 +136,6 @@ func cmdAdd(cfg *config.Config, args []string) {
 func cmdDelete(cfg *config.Config, args []string) {
 	var name string
 	if len(args) < 1 {
-		// Interactive mode: list profiles and prompt for selection
 		profiles := profile.ListProfiles(cfg)
 		if len(profiles) == 0 {
 			fmt.Println("No profiles available.")
@@ -153,11 +147,10 @@ func cmdDelete(cfg *config.Config, args []string) {
 		}
 		fmt.Print("Select profile to delete (number or name): ")
 		var input string
-		fmt.Scanln(&input)
+		_, _ = fmt.Scanln(&input)
 
 		name = input
 		if _, ok := cfg.Profiles[name]; !ok {
-			// Try to parse as number
 			found := false
 			for i, p := range profiles {
 				if input == fmt.Sprintf("%d", i+1) {
@@ -192,7 +185,7 @@ func cmdList(cfg *config.Config, cwd string) {
 		fmt.Println("No profiles configured")
 		return
 	}
-	for name := range cfg.Profiles {
+	for _, name := range profile.ListProfiles(cfg) {
 		marker := "  "
 		if name == active {
 			marker = "* "
@@ -209,7 +202,6 @@ func cmdLink(cfg *config.Config, args []string, cwd string) {
 	var profileName string
 	force := false
 
-	// Parse flags
 	args, flags := parseFlags(args)
 	for _, f := range flags {
 		if f == "force" {
@@ -218,7 +210,6 @@ func cmdLink(cfg *config.Config, args []string, cwd string) {
 	}
 
 	if len(args) < 1 {
-		// Interactive mode: list profiles and prompt for selection
 		profiles := profile.ListProfiles(cfg)
 		if len(profiles) == 0 {
 			fmt.Println("No profiles available. Create one with 'jamshid add <name>'")
@@ -230,11 +221,10 @@ func cmdLink(cfg *config.Config, args []string, cwd string) {
 		}
 		fmt.Print("Select profile (number or name): ")
 		var input string
-		fmt.Scanln(&input)
+		_, _ = fmt.Scanln(&input)
 
 		profileName = input
 		if _, ok := cfg.Profiles[profileName]; !ok {
-			// Try to parse as number
 			found := false
 			for i, p := range profiles {
 				if input == fmt.Sprintf("%d", i+1) {
@@ -268,7 +258,6 @@ func cmdLink(cfg *config.Config, args []string, cwd string) {
 	fmt.Printf("Linked profile %q to %s\n", profileName, cwd)
 }
 
-// parseFlags separates flags from arguments.
 func parseFlags(args []string) ([]string, []string) {
 	var flags []string
 	var remaining []string
@@ -297,7 +286,6 @@ func cmdUnlink(cfg *config.Config, cwd string) {
 func cmdGlobal(cfg *config.Config, args []string) {
 	var name string
 	if len(args) < 1 {
-		// Interactive mode: list profiles and prompt for selection
 		profiles := profile.ListProfiles(cfg)
 		if len(profiles) == 0 {
 			fmt.Println("No profiles available.")
@@ -313,11 +301,10 @@ func cmdGlobal(cfg *config.Config, args []string) {
 		}
 		fmt.Print("Select profile to set as global (number or name): ")
 		var input string
-		fmt.Scanln(&input)
+		_, _ = fmt.Scanln(&input)
 
 		name = input
 		if _, ok := cfg.Profiles[name]; !ok {
-			// Try to parse as number
 			found := false
 			for i, p := range profiles {
 				if input == fmt.Sprintf("%d", i+1) {
@@ -353,7 +340,6 @@ func cmdVault(cfg *config.Config, args []string) {
 		os.Exit(1)
 	}
 
-	// Check gh CLI before any vault operation
 	if err := gitvault.CheckGhAuth(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -436,16 +422,17 @@ complete -F _jamshid jamshid
 	fmt.Print(script)
 }
 
-// isLinked checks if cwd is already linked in config.
 func isLinked(cwd string, cfg *config.Config) bool {
-	hash := profile.GetActiveProfile(cfg, cwd)
-	return hash != ""
+	return profile.GetActiveProfile(cfg, cwd) != ""
 }
 
 func init() {
-	// Ensure config directory exists on startup
 	dir, err := config.JamshidDir()
-	if err == nil {
-		_ = os.MkdirAll(filepath.Join(dir, "profiles"), 0755)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: get jamshid dir: %v\n", err)
+		return
+	}
+	if err := os.MkdirAll(filepath.Join(dir, constants.DirProfiles), constants.DefaultDirPerm); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: create profiles dir: %v\n", err)
 	}
 }

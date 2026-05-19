@@ -6,15 +6,13 @@ import (
 	"os/exec"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
+	"github.com/PapaDanielVi/jamshid/internal/pkg/constants"
 )
 
-// CheckGhAuth verifies that `gh` CLI is installed and authenticated.
 func CheckGhAuth() error {
-	// Check if gh is installed
-	if err := exec.Command("which", "gh").Run(); err != nil {
+	if _, err := exec.LookPath("gh"); err != nil {
 		return fmt.Errorf("`gh` CLI is not installed - install it from https://cli.github.com")
 	}
-	// Check if authenticated
 	cmd := exec.Command("gh", "auth", "status")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("`gh` is not authenticated - run `gh auth login` first")
@@ -22,44 +20,42 @@ func CheckGhAuth() error {
 	return nil
 }
 
-// InitVault initializes a git vault at ~/.config/jamshid/ with the given remote.
 func InitVault(remote string) error {
 	dir, err := config.JamshidDir()
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, constants.DefaultDirPerm); err != nil {
 		return fmt.Errorf("create dir: %w", err)
 	}
 
-	// git init
 	if err := runGit(dir, "init"); err != nil {
 		return fmt.Errorf("git init: %w", err)
 	}
-	// add remote
 	if err := runGit(dir, "remote", "add", "origin", remote); err != nil {
 		return fmt.Errorf("git remote add: %w", err)
 	}
 	return nil
 }
 
-// SyncPush commits and pushes all changes to the vault remote.
 func SyncPush() error {
 	dir, err := config.JamshidDir()
 	if err != nil {
 		return err
 	}
 
-	// git add -A
 	if err := runGit(dir, "add", "-A"); err != nil {
 		return fmt.Errorf("git add: %w", err)
 	}
-	// git commit (only if there are changes)
-	_ = runGit(dir, "commit", "-m", "sync: auto-update")
-	// git push
+
+	// Only commit if there are staged changes
+	if err := runGit(dir, "diff", "--cached", "--quiet"); err != nil {
+		// diff --cached --quiet exits 1 when there are differences
+		_ = runGit(dir, "commit", "-m", constants.DefaultCommitMessage)
+	}
+
 	if err := runGit(dir, "push", "origin", "main"); err != nil {
-		// Try master branch
 		if err2 := runGit(dir, "push", "origin", "master"); err2 != nil {
 			return fmt.Errorf("git push: %w", err)
 		}
@@ -67,7 +63,6 @@ func SyncPush() error {
 	return nil
 }
 
-// SyncPull pulls latest changes from the vault remote.
 func SyncPull() error {
 	dir, err := config.JamshidDir()
 	if err != nil {

@@ -86,12 +86,12 @@ func TestLinkUnlinkProfile(t *testing.T) {
 		t.Fatalf("LinkProfile: %v", err)
 	}
 
-	link := filepath.Join(cwd, ".claude")
+	link := filepath.Join(cwd, ".claude", "settings.local.json")
 	target, err := os.Readlink(link)
 	if err != nil {
 		t.Fatalf("Readlink: %v", err)
 	}
-	if filepath.Base(filepath.Dir(target)) != "myprofile" {
+	if filepath.Base(filepath.Dir(filepath.Dir(target))) != "myprofile" {
 		t.Errorf("symlink target incorrect: %s", target)
 	}
 
