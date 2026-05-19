@@ -5,6 +5,9 @@
 ![Go Version](https://img.shields.io/badge/Go-1.26-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Build Status](https://github.com/PapaDanielVi/jamshid/actions/workflows/ci.yml/badge.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/PapaDanielVi/jamshid)](https://goreportcard.com/report/github.com/PapaDanielVi/jamshid)
+[![GoDoc](https://pkg.go.dev/badge/github.com/PapaDanielVi/jamshid)](https://pkg.go.dev/github.com/PapaDanielVi/jamshid)
+
 
 Jamshid is a CLI tool for managing multiple Claude Code profiles. Switch between personal Anthropic, enterprise keys, and OpenRouter configurations across project directories without manual file copying or key leaks.
 
@@ -17,9 +20,9 @@ Jamshid (also spelled Jamshēd) was a mythical Persian king who possessed a magi
 - **Profile Management**: Create, delete, and list profiles
 - **Symlink Switching**: Link profiles to project directories via symlinks (not copies)
 - **MCP Server Support**: Automatically copies and links MCP server config files (`.mcp.json`, `mcp.json`, `mcp_servers.json`)
-- **Env Mode**: Set `CLAUDE_CONFIG_DIR` environment variable to point Claude Code at a profile directory — no symlinks needed
+- **Env Mode**: Print `export CLAUDE_CONFIG_DIR=<path>` for use with `eval $(jamshid env <profile>)` — no symlinks needed
 - **Git Vault**: Sync profiles across machines via git
-- **TUI**: Beautiful terminal UI built with Bubble Tea
+- **Interactive TUI**: Full terminal UI with profile selection, text input, and sub-command navigation — all commands work through both CLI args and TUI
 
 ## Installation
 
@@ -54,8 +57,8 @@ jamshid list
 cd /path/to/project
 jamshid link work
 
-# Or use env mode (no symlinks — sets CLAUDE_CONFIG_DIR)
-jamshid env work
+# Or use env mode (no symlinks — eval sets CLAUDE_CONFIG_DIR in current shell)
+eval $(jamshid env work)
 claude
 
 # Unlink
@@ -110,14 +113,15 @@ jamshid link work
 ### Use env mode (no symlinks)
 
 ```bash
-# Set CLAUDE_CONFIG_DIR directly in the current process
-jamshid env work
-# Output:
-#   Claude Code is now using profile "work"
-#   CLAUDE_CONFIG_DIR=~/.config/jamshid/profiles/work/.claude
+# Set CLAUDE_CONFIG_DIR in the current shell via eval
+eval $(jamshid env work)
+# Output: (exports CLAUDE_CONFIG_DIR to the current shell)
 
 # Now run Claude Code — it will use the profile's config directory
 claude
+
+# Or use it in one line:
+eval $(jamshid env personal) && claude
 ```
 
 ### Link a profile interactively
@@ -132,6 +136,29 @@ jamshid link
 # Select profile (number or name): 2
 # Output: Linked profile "work" to /path/to/project
 ```
+
+## Interactive TUI
+
+Run `jamshid` without arguments to launch the interactive terminal UI:
+
+```bash
+jamshid
+```
+
+The TUI provides a full interactive experience for all commands:
+
+- **Command Selection**: Navigate and select from available commands
+- **Profile Selection**: For commands that need a profile (delete, link, env), a profile list is shown
+- **Text Input**: For commands that need text input (add, vault init), a text input prompt is shown
+- **Sub-command Navigation**: Vault commands show a sub-command list (init, sync)
+
+All commands work identically through both the TUI and direct CLI arguments.
+
+**TUI Navigation**:
+- `↑/↓` or `j/k`: Navigate lists
+- `enter`: Select item
+- `esc`: Go back (from profile/text input views)
+- `q` or `ctrl+c`: Quit
 
 ## How It Works
 
@@ -148,9 +175,10 @@ Jamshid offers two ways to use profiles:
 
 ### Env Mode (`env`)
 
-1. `jamshid env <profile>` sets `CLAUDE_CONFIG_DIR` directly in the current process via `os.Setenv`
-2. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config — no symlinks needed
-3. This is ideal for users who prefer environment-based config switching
+1. `jamshid env <profile>` prints `export CLAUDE_CONFIG_DIR=<path>` to stdout
+2. Use `eval $(jamshid env <profile>)` to set the variable in your current shell
+3. Claude Code reads `CLAUDE_CONFIG_DIR` to find its config — no symlinks needed
+4. This is ideal for users who prefer environment-based config switching
 
 ## Project Structure
 

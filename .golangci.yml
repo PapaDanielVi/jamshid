@@ -470,6 +470,9 @@ linters:
           - revive
           - gocritic
           - mnd
+          - goconst
+          - nonamedreturns
+          - gocognit
       - path: 'internal/pkg/profile/'
         linters:
           - gosec

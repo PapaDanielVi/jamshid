@@ -43,11 +43,14 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		selectedCmd, selectedProfile := m.SelectedCommand()
+		selectedCmd, selectedArg, selectedSubcmd := m.SelectedCommand()
 		if selectedCmd != "" {
 			args := []string{}
-			if selectedProfile != "" {
-				args = append(args, selectedProfile)
+			if selectedSubcmd != "" {
+				args = append(args, selectedSubcmd)
+			}
+			if selectedArg != "" {
+				args = append(args, selectedArg)
 			}
 			executeCommand(cfg, selectedCmd, args, cwd)
 		}
