@@ -1,5 +1,7 @@
 # Jamshid
 
+![Jamshid Icon](docs/jamshid_icon.png)
+
 ![Go Version](https://img.shields.io/badge/Go-1.26-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Build Status](https://github.com/PapaDanielVi/jamshid/actions/workflows/ci.yml/badge.svg)
