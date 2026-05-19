@@ -28,7 +28,7 @@ Jamshid (also spelled Jamshid) was a mythical Persian king who possessed a magic
 go install github.com/PapaDanielVi/jamshid@latest
 ```
 
-### Homebrew (macOS/Linux)
+### Homebrew (macOS)
 
 ```bash
 brew tap PapaDanielVi/jamshid
@@ -45,12 +45,21 @@ jamshid add work
 # Set global profile
 jamshid global personal
 
-# Link profile to current directory (must be git repo)
+# Link profile to current directory
 cd /path/to/project
-jamshid local work
+jamshid link work
+
+# Link profile interactively (select from list)
+jamshid link
 
 # List profiles
 jamshid list
+
+# Show help
+jamshid help
+
+# Generate bash completion
+jamshid completion bash > /etc/bash_completion.d/jamshid
 
 # Launch TUI
 jamshid
@@ -61,21 +70,45 @@ jamshid
 | Command                    | Description                                           |
 | -------------------------- | ----------------------------------------------------- |
 | `jamshid`                  | Launch TUI (configure mode if cwd has linked profile) |
-| `jamshid add <name>`       | Create new profile (interactive)                      |
+| `jamshid add <name>`       | Create new profile (imports settings if found)        |
 | `jamshid delete <name>`    | Delete profile                                        |
 | `jamshid list`             | List all profiles with active status                  |
-| `jamshid local <profile>`  | Symlink profile to cwd (must be git repo)             |
+| `jamshid link [profile]`   | Link profile to cwd (interactive if no profile given) |
 | `jamshid unlink`           | Remove profile symlink from cwd                       |
 | `jamshid global <profile>` | Set global fallback profile                           |
 | `jamshid vault init <url>` | Configure git vault remote                            |
 | `jamshid vault sync`       | Trigger git sync                                      |
+| `jamshid help`             | Show help message                                     |
+| `jamshid completion bash`  | Generate bash completion script                       |
+
+## Examples
+
+### Import existing settings when creating a profile
+```bash
+cd /path/to/project/with/.claude/settings.local.json
+jamshid add myproject
+# Output: Found existing .claude/settings.local.json. Create profile from this? (y/n): y
+# Output: Profile "myproject" created
+```
+
+### Link a profile interactively
+```bash
+cd /path/to/project
+jamshid link
+# Output:
+# Available profiles:
+#   1: personal
+#   2: work
+# Select profile (number or name): 2
+# Output: Linked profile "work" to /path/to/project
+```
 
 ## How It Works
 
 Jamshid uses symlinks to switch between Claude Code configurations:
 
 1. Profiles are stored in `~/.config/jamshid/profiles/<name>/`
-2. When you run `jamshid local <profile>`, it creates a symlink: `<cwd>/.claude -> ~/.config/jamshid/profiles/<name>/.claude`
+2. When you run `jamshid link <profile>`, it creates a symlink: `<cwd>/.claude -> ~/.config/jamshid/profiles/<name>/.claude`
 3. The active profile for a directory is tracked via a hash of the directory path
 4. `.gitignore` is automatically updated to exclude `settings.local.json`
 

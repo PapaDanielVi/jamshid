@@ -3,3 +3,4 @@ jamshid
 *.test
 *.out
 vendor/
+.claude/settings.local.json

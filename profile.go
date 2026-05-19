@@ -35,7 +35,8 @@ func ProfileDir(name string) (string, error) {
 }
 
 // AddProfile creates a new profile with the given name.
-func AddProfile(cfg *Config, name string) error {
+// Optional importPath can be provided to import settings from an existing file.
+func AddProfile(cfg *Config, name string, importPath ...string) error {
 	if name == "" {
 		return fmt.Errorf("profile name cannot be empty")
 	}
@@ -54,14 +55,28 @@ func AddProfile(cfg *Config, name string) error {
 	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0755); err != nil {
 		return fmt.Errorf("create profile dir: %w", err)
 	}
-	// Create default settings.json
-	settings := map[string]any{}
-	data, err := json.MarshalIndent(settings, "", "    ")
-	if err != nil {
-		return fmt.Errorf("marshal settings: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, ".claude/settings.json"), data, 0644); err != nil {
-		return fmt.Errorf("write settings: %w", err)
+
+	// Handle optional import path
+	if len(importPath) > 0 && importPath[0] != "" {
+		src := importPath[0]
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("read import file: %w", err)
+		}
+		dst := filepath.Join(dir, ".claude", filepath.Base(src))
+		if err := os.WriteFile(dst, data, 0644); err != nil {
+			return fmt.Errorf("write imported settings: %w", err)
+		}
+	} else {
+		// Create default settings.json
+		settings := map[string]any{}
+		data, err := json.MarshalIndent(settings, "", "    ")
+		if err != nil {
+			return fmt.Errorf("marshal settings: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ".claude/settings.json"), data, 0644); err != nil {
+			return fmt.Errorf("write settings: %w", err)
+		}
 	}
 	return nil
 }
