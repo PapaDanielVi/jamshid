@@ -2,9 +2,13 @@
 
 ![Go Version](https://img.shields.io/badge/Go-1.26-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Build Status](https://github.com/mk/jamshid/actions/workflows/ci.yml/badge.svg)
+![Build Status](https://github.com/PapaDanielVi/jamshid/actions/workflows/ci.yml/badge.svg)
 
 Jamshid is a CLI tool for managing multiple Claude Code profiles. Switch between personal Anthropic, enterprise keys, and OpenRouter configurations across project directories without manual file copying or key leaks.
+
+## Naming Philosophy
+
+Jamshid (also spelled Jamshid) was a mythical Persian king who possessed a magical cup called the "Jam-e-Jam" (Cup of Jamshid). This cup was said to reveal all the realms of the world, allowing the king to see everything at once. Much like the magical cup that showed all realms, Jamshid the tool gives you visibility and control over all your Claude Code configurations across different projects and environments.
 
 ## Features
 
@@ -19,13 +23,13 @@ Jamshid is a CLI tool for managing multiple Claude Code profiles. Switch between
 ### Go Install
 
 ```bash
-go install github.com/mk/jamshid@latest
+go install github.com/PapaDanielVi/jamshid@latest
 ```
 
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap mk/jamshid
+brew tap PapaDanielVi/jamshid
 brew install jamshid
 ```
 
@@ -52,17 +56,17 @@ jamshid
 
 ## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `jamshid` | Launch TUI (configure mode if cwd has linked profile) |
-| `jamshid add <name>` | Create new profile (interactive) |
-| `jamshid delete <name>` | Delete profile |
-| `jamshid list` | List all profiles with active status |
-| `jamshid local <profile>` | Symlink profile to cwd (must be git repo) |
-| `jamshid unlink` | Remove profile symlink from cwd |
-| `jamshid global <profile>` | Set global fallback profile |
-| `jamshid vault init <url>` | Configure git vault remote |
-| `jamshid vault sync` | Trigger git sync |
+| Command                    | Description                                           |
+| -------------------------- | ----------------------------------------------------- |
+| `jamshid`                  | Launch TUI (configure mode if cwd has linked profile) |
+| `jamshid add <name>`       | Create new profile (interactive)                      |
+| `jamshid delete <name>`    | Delete profile                                        |
+| `jamshid list`             | List all profiles with active status                  |
+| `jamshid local <profile>`  | Symlink profile to cwd (must be git repo)             |
+| `jamshid unlink`           | Remove profile symlink from cwd                       |
+| `jamshid global <profile>` | Set global fallback profile                           |
+| `jamshid vault init <url>` | Configure git vault remote                            |
+| `jamshid vault sync`       | Trigger git sync                                      |
 
 ## How It Works
 

@@ -53,3 +53,17 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+## 5. Jamshid-Specific Notes
+
+**Testing**: `os.UserHomeDir()` doesn't respect `HOME` env var. Use `os.Getenv("HOME")` in `jamshidDir()` for testability.
+
+**Bubble Tea**: Package name is `tea`, not `bubbletea`. Import as `tea "github.com/charmbracelet/bubbletea"`.
+
+**Git Vault**: Check `gh` CLI auth with `gh auth status` before vault operations. Handle both "main" and "master" branch names.
+
+**Symlinks**: When linking profiles, handle cases where `.claude` exists as real directory (backup to `.bak`) vs symlink (remove and replace).
+
+**Linting**: `errcheck` linter requires checking return values of `os.Setenv`, `os.MkdirAll`, `os.Remove`, etc. Use `_ =` prefix if intentionally ignoring.
+
+**Go Module Paths**: Bubble Tea v2 uses `charm.land/` paths, but v1 uses `github.com/`. Stick with v1 (`github.com/charmbracelet/bubbletea`) for stability.

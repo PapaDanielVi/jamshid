@@ -6,6 +6,20 @@ import (
 	"os/exec"
 )
 
+// checkGhAuth verifies that `gh` CLI is installed and authenticated.
+func checkGhAuth() error {
+	// Check if gh is installed
+	if err := exec.Command("which", "gh").Run(); err != nil {
+		return fmt.Errorf("`gh` CLI is not installed - install it from https://cli.github.com")
+	}
+	// Check if authenticated
+	cmd := exec.Command("gh", "auth", "status")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("`gh` is not authenticated - run `gh auth login` first")
+	}
+	return nil
+}
+
 // InitVault initializes a git vault at ~/.config/jamshid/ with the given remote.
 func InitVault(remote string) error {
 	dir, err := jamshidDir()

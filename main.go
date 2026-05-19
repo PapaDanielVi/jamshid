@@ -20,6 +20,16 @@ func main() {
 			cfg.LinkedDirs = make(map[string]DirEntry)
 		}
 		cwd, _ := os.Getwd()
+
+		// Auto-detect existing Claude settings not in our config
+		if IsGitRepo(cwd) && !isLinked(cwd, cfg) {
+			if hasClaudeSettings(cwd) {
+				fmt.Println("Found existing Claude settings in this repo.")
+				fmt.Println("Would you like to import them as a jamshid profile? (not yet implemented)")
+				// TODO: Implement interactive profile creation from existing settings
+			}
+		}
+
 		m := newTUI(cfg, cwd)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
@@ -184,6 +194,13 @@ func cmdVault(cfg *Config, args []string) {
 		fmt.Fprintln(os.Stderr, "Usage: jamshid vault <init|sync>")
 		os.Exit(1)
 	}
+
+	// Check gh CLI before any vault operation
+	if err := checkGhAuth(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	switch args[0] {
 	case "init":
 		if len(args) < 2 {
@@ -202,6 +219,26 @@ func cmdVault(cfg *Config, args []string) {
 		fmt.Fprintf(os.Stderr, "Unknown vault command: %s\n", args[0])
 		os.Exit(1)
 	}
+}
+
+// isLinked checks if cwd is already linked in config.
+func isLinked(cwd string, cfg *Config) bool {
+	hash := DirHash(cwd)
+	_, linked := cfg.LinkedDirs[hash]
+	return linked
+}
+
+// hasClaudeSettings checks if .claude/ directory exists with settings.
+func hasClaudeSettings(cwd string) bool {
+	claudeDir := filepath.Join(cwd, ".claude")
+	settingsPath := filepath.Join(claudeDir, "settings.json")
+
+	if info, err := os.Stat(claudeDir); err == nil && info.IsDir() {
+		if _, err := os.Stat(settingsPath); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {
