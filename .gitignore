@@ -32,3 +32,5 @@ go.work.sum
 .vscode/
 
 .claude/settings.local.json
+
+/jamshid

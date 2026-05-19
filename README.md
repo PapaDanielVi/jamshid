@@ -10,17 +10,23 @@ Jamshid is a CLI tool for managing multiple Claude Code profiles. Switch between
 
 ## Naming Philosophy
 
-Jamshid (also spelled Jamshid) was a mythical Persian king who possessed a magical cup called the "Jam-e-Jam" (Cup of Jamshid). This cup was said to reveal all the realms of the world, allowing the king to see everything at once. Much like the magical cup that showed all realms, Jamshid the tool gives you visibility and control over all your Claude Code configurations across different projects and environments.
+Jamshid (also spelled Jamshēd) was a mythical Persian king who possessed a magical cup called the "Jam-e-Jam" (Cup of Jamshid). This cup was said to reveal all the realms of the world, allowing the king to see everything at once. Much like the magical cup that showed all realms, Jamshid the tool gives you visibility and control over all your Claude Code configurations across different projects and environments.
 
 ## Features
 
 - **Profile Management**: Create, delete, and list profiles
 - **Symlink Switching**: Link profiles to project directories via symlinks (not copies)
-- **Model Selector**: Interactive searchable list of Anthropic and OpenRouter models
 - **Git Vault**: Sync profiles across machines via git
 - **TUI**: Beautiful terminal UI built with Bubble Tea
 
 ## Installation
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap PapaDanielVi/tap
+brew install jamshid
+```
 
 ### Go Install
 
@@ -28,12 +34,9 @@ Jamshid (also spelled Jamshid) was a mythical Persian king who possessed a magic
 go install github.com/PapaDanielVi/jamshid@latest
 ```
 
-### Homebrew (macOS)
+### Binary Download
 
-```bash
-brew tap PapaDanielVi/jamshid
-brew install jamshid
-```
+Download the latest release for your platform from the [Releases](https://github.com/PapaDanielVi/jamshid/releases) page.
 
 ## Quick Start
 
@@ -58,6 +61,9 @@ jamshid list
 # Show help
 jamshid help
 
+# Check version
+jamshid --version
+
 # Generate bash completion
 jamshid completion bash > /etc/bash_completion.d/jamshid
 
@@ -67,23 +73,25 @@ jamshid
 
 ## CLI Reference
 
-| Command                    | Description                                           |
-| -------------------------- | ----------------------------------------------------- |
-| `jamshid`                  | Launch TUI (configure mode if cwd has linked profile) |
-| `jamshid add <name>`       | Create new profile (imports settings if found)        |
-| `jamshid delete <name>`    | Delete profile                                        |
-| `jamshid list`             | List all profiles with active status                  |
-| `jamshid link [profile]`   | Link profile to cwd (interactive if no profile given) |
-| `jamshid unlink`           | Remove profile symlink from cwd                       |
-| `jamshid global <profile>` | Set global fallback profile                           |
-| `jamshid vault init <url>` | Configure git vault remote                            |
-| `jamshid vault sync`       | Trigger git sync                                      |
-| `jamshid help`             | Show help message                                     |
-| `jamshid completion bash`  | Generate bash completion script                       |
+| Command                      | Description                                           |
+| ---------------------------- | ----------------------------------------------------- |
+| `jamshid`                    | Launch interactive TUI                                |
+| `jamshid add <name>`         | Create new profile (imports settings if found)        |
+| `jamshid delete <name>`      | Delete profile                                        |
+| `jamshid list`               | List all profiles with active status                  |
+| `jamshid link [profile]`     | Link profile to cwd (interactive if no profile given) |
+| `jamshid unlink`             | Remove profile symlink from cwd                       |
+| `jamshid global <profile>`   | Set global fallback profile                           |
+| `jamshid vault init <url>`   | Configure git vault remote                            |
+| `jamshid vault sync`         | Trigger git sync                                      |
+| `jamshid version`            | Print version                                         |
+| `jamshid help`               | Show help message                                     |
+| `jamshid completion bash`    | Generate bash completion script                       |
 
 ## Examples
 
 ### Import existing settings when creating a profile
+
 ```bash
 cd /path/to/project/with/.claude/settings.local.json
 jamshid add myproject
@@ -92,6 +100,7 @@ jamshid add myproject
 ```
 
 ### Link a profile interactively
+
 ```bash
 cd /path/to/project
 jamshid link
@@ -108,13 +117,34 @@ jamshid link
 Jamshid uses symlinks to switch between Claude Code configurations:
 
 1. Profiles are stored in `~/.config/jamshid/profiles/<name>/`
-2. When you run `jamshid link <profile>`, it creates a symlink: `<cwd>/.claude -> ~/.config/jamshid/profiles/<name>/.claude`
+2. When you run `jamshid link <profile>`, it creates a symlink: `<cwd>/.claude/settings.local.json` → `~/.config/jamshid/profiles/<name>/.claude/settings.local.json`
 3. The active profile for a directory is tracked via a hash of the directory path
 4. `.gitignore` is automatically updated to exclude `settings.local.json`
 
+## Project Structure
+
+```
+jamshid/
+├── cmd/jamshid/              # Entry point
+├── internal/
+│   ├── pkg/
+│   │   ├── config/           # Config load/save (atomic writes)
+│   │   ├── constants/        # Shared constants
+│   │   ├── gitignore/        # .gitignore management
+│   │   ├── gitvault/         # Git vault sync
+│   │   ├── hash/             # Directory hashing
+│   │   ├── models/           # Profile and MCP server types
+│   │   └── profile/          # Profile CRUD and symlink management
+│   └── tui/                  # Bubble Tea TUI
+├── Formula/                  # Homebrew formula
+├── Makefile                  # Build, test, lint
+├── .goreleaser.yaml          # Release config
+└── .github/workflows/        # CI/CD
+```
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a PR.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

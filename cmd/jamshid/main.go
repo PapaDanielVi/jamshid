@@ -14,6 +14,9 @@ import (
 	"github.com/PapaDanielVi/jamshid/internal/tui"
 )
 
+// Version is set at build time via -ldflags.
+var Version = "dev"
+
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -76,6 +79,8 @@ func executeCommand(cfg *config.Config, cmd string, args []string, cwd string) {
 		cmdGlobal(cfg, args)
 	case "vault":
 		cmdVault(cfg, args)
+	case "version", "--version", "-v":
+		fmt.Printf("jamshid %s\n", Version)
 	case "help", "--help", "-h":
 		cmdHelp()
 	case "completion":

@@ -60,10 +60,20 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Bubble Tea**: Package name is `tea`, not `bubbletea`. Import as `tea "github.com/charmbracelet/bubbletea"`.
 
-**Git Vault**: Check `gh` CLI auth with `gh auth status` before vault operations. Handle both "main" and "master" branch names.
+**TUI Resize**: Handle `tea.WindowSizeMsg` in `Update()` and call `m.list.SetSize(w, h)`. Bubble Tea sends this automatically on startup and on SIGWINCH.
 
-**Symlinks**: When linking profiles, handle cases where `.claude` exists as real directory (backup to `.bak`) vs symlink (remove and replace).
+**Git Vault**: Check `gh` CLI auth with `exec.LookPath("gh")` (not `exec.Command("which", "gh")`) for cross-platform compatibility. Handle both "main" and "master" branch names.
+
+**Symlinks**: When linking profiles, handle cases where `.claude` exists as real directory (backup to `.bak`) vs symlink (remove and replace). The symlink points to `settings.local.json`, not the `.claude` directory itself.
 
 **Linting**: `errcheck` linter requires checking return values of `os.Setenv`, `os.MkdirAll`, `os.Remove`, etc. Use `_ =` prefix if intentionally ignoring.
 
 **Go Module Paths**: Bubble Tea v2 uses `charm.land/` paths, but v1 uses `github.com/`. Stick with v1 (`github.com/charmbracelet/bubbletea`) for stability.
+
+**Constants**: Shared constants (`.claude`, `settings.local.json`, `settings.json`, `config.json`, `profiles`, file/dir permissions, config version, commit message) live in `internal/pkg/constants`. Always use these instead of hardcoded values.
+
+**Sentinel Errors**: `profile` package defines `ErrProfileNotFound`, `ErrProfileExists`, `ErrEmptyName`, `ErrSettingsExists`. `config` package defines `ErrConfigCorrupt`. Always wrap with `%w` so callers can use `errors.Is()`.
+
+**Config Writes**: `SaveConfig` uses atomic writes (temp file + `os.Rename`) to prevent corruption. Never write directly to the config path.
+
+**Version**: Build-time version is set via `-ldflags "-X main.Version=$(VERSION)"`. The `Makefile` extracts it from git tags. GoReleaser passes `{{ .Version }}`. Default is `"dev"`.
