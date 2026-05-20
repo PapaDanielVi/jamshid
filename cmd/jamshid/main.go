@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,6 +38,9 @@ func main() {
 	checkLinkedDir(cfg, cwd)
 
 	if len(os.Args) < 2 {
+		if len(cfg.Profiles) == 0 && cfg.VaultRemote == "" {
+			promptFirstRun(cfg)
+		}
 		m := tui.NewTUI(cfg, cwd)
 		p := tea.NewProgram(m)
 		if _, err := p.Run(); err != nil {
@@ -250,8 +254,23 @@ func cmdLink(cfg *config.Config, args []string, cwd string) {
 	}
 
 	if err := profile.LinkProfile(cfg, cwd, profileName, force); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		if errors.Is(err, profile.ErrSettingsExists) && !force {
+			fmt.Print("Remove existing .claude/settings.local.json and link profile? (y/n): ")
+			var answer string
+			_, _ = fmt.Scanln(&answer)
+			if answer == "y" || answer == "Y" {
+				if err := profile.LinkProfile(cfg, cwd, profileName, true); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
+			} else {
+				fmt.Fprintln(os.Stderr, "Aborted.")
+				os.Exit(1)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 	if err := config.SaveConfig(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -353,6 +372,45 @@ func cmdHelp() {
 	fmt.Println("\nEnv usage:")
 	fmt.Println("  eval $(jamshid env personal)   # Set CLAUDE_CONFIG_DIR in current shell")
 	fmt.Println("  eval $(jamshid env work)       # Switch to work profile")
+}
+
+func promptFirstRun(cfg *config.Config) {
+	fmt.Println("No profiles configured. A Git vault lets you back up and sync profiles.")
+	fmt.Println("  1) Initialize a new vault")
+	fmt.Println("  2) Skip (create profiles manually)")
+	fmt.Print("Choose an option (1/2): ")
+	var answer string
+	_, _ = fmt.Scanln(&answer)
+	if answer != "1" {
+		return
+	}
+
+	if err := gitvault.CheckGhAuth(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Println("You can set up a vault later with: jamshid vault init <url>")
+		return
+	}
+
+	fmt.Print("Enter git remote URL for the vault: ")
+	var url string
+	_, _ = fmt.Scanln(&url)
+	if url == "" {
+		fmt.Fprintln(os.Stderr, "No URL provided. Skipping vault setup.")
+		return
+	}
+
+	if err := gitvault.InitVault(url); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Println("You can set up a vault later with: jamshid vault init <url>")
+		return
+	}
+
+	cfg.VaultRemote = url
+	if err := config.SaveConfig(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return
+	}
+	fmt.Println("Vault initialized.")
 }
 
 func isLinked(cwd string, cfg *config.Config) bool {
