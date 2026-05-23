@@ -199,7 +199,7 @@ func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error 
 	if info, err := os.Lstat(claudeLink); err == nil {
 		if info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
 			if force {
-				if err := os.RemoveAll(claudeLink); err != nil {
+				if err := os.Remove(claudeLink); err != nil {
 					return fmt.Errorf("remove .claude: %w", err)
 				}
 			} else {
@@ -273,4 +273,3 @@ func ProfilePath(name string) (string, error) {
 	}
 	return filepath.Join(dir, constants.DirClaude), nil
 }
-
