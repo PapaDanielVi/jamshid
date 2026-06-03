@@ -43,6 +43,37 @@ go install github.com/PapaDanielVi/jamshid@latest
 
 Download the latest release for your platform from the [Releases](https://github.com/PapaDanielVi/jamshid/releases) page.
 
+### Linux (Automated Install)
+
+```bash
+# Download and run the install script
+curl -Lo install-jamshid.sh https://raw.githubusercontent.com/PapaDanielVi/jamshid/main/scripts/install-linux.sh
+chmod +x install-jamshid.sh
+./install-jamshid.sh
+```
+
+The script automatically:
+- Detects your architecture (amd64/arm64)
+- Detects your package manager (apk/deb/rpm/pacman)
+- Installs from the appropriate package, or falls back to binary
+
+### Windows (PowerShell)
+
+```powershell
+# Download and run the install script
+iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PapaDanielVi/jamshid/main/scripts/install-windows.ps1'))
+```
+
+Or run locally:
+```powershell
+.\install-windows.ps1
+```
+
+The script automatically:
+- Detects your architecture (x86_64/arm64)
+- Downloads and extracts the binary to `Program Files\jamshid`
+- Adds the installation directory to your user PATH
+
 ## Quick Start
 
 ```bash
