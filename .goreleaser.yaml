@@ -1,4 +1,4 @@
-version: 1
+version: 2
 
 before:
   hooks:
@@ -20,7 +20,8 @@ builds:
       - -X main.Version={{ .Version }}
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -29,22 +30,41 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
-brews:
-  - repository:
+nfpms:
+  - id: jamshid
+    package_name: jamshid
+    maintainer: "PapaDanielVi <k2527806@gmail.com>"
+    description: "Jamshid is a CLI tool for managing multiple Claude Code profiles"
+    license: "MIT"
+    formats:
+      - apk
+      - deb
+      - rpm
+      - termux.deb
+      - archlinux
+
+homebrew_casks:
+  - name: jamshid
+
+    repository:
       owner: PapaDanielVi
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-
-    directory: Formula
 
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
 
+    url:
+      verified: https://github.com/PapaDanielVi/jamshid
+
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/jamshid"]
+          end
+
     homepage: "https://github.com/PapaDanielVi/jamshid"
     description: "Jamshid is a CLI tool for managing multiple Claude Code profiles"
     license: "MIT"
-
-
-    test: |
-      system "#{bin}/jamshid --version"
