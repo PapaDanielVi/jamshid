@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -85,6 +86,8 @@ func executeCommand(cfg *config.Config, cmd string, args []string, cwd string) {
 		cmdUnlink(cfg, cwd)
 	case "env":
 		cmdEnv(cfg, args)
+	case "status":
+		cmdStatus(cfg, cwd)
 	case "vault":
 		cmdVault(cfg, args)
 	case "version", "--version", "-v":
@@ -325,13 +328,50 @@ func cmdEnv(cfg *config.Config, args []string) {
 	fmt.Printf("export CLAUDE_CONFIG_DIR=%s\n", path)
 }
 
+func cmdStatus(cfg *config.Config, cwd string) {
+	name := profile.GetActiveProfile(cfg, cwd)
+	if name == "" {
+		fmt.Printf("No profile linked to %s\n", cwd)
+		return
+	}
+	fmt.Printf("Profile: %s\n", name)
+	checkSymlinkStatus(filepath.Join(cwd, constants.DirClaude, constants.FileSettingsLocal),
+		constants.DirClaude+"/"+constants.FileSettingsLocal)
+	for _, f := range []string{".mcp.json", "mcp.json", "mcp_servers.json"} {
+		checkSymlinkStatus(filepath.Join(cwd, f), f)
+	}
+}
+
+func checkSymlinkStatus(path, label string) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		fmt.Printf("  %s: file (not a symlink)\n", label)
+		return
+	}
+	target, err := os.Readlink(path)
+	if err != nil {
+		fmt.Printf("  %s: unreadable symlink\n", label)
+		return
+	}
+	if _, err := os.Stat(target); err != nil {
+		fmt.Printf("  %s: broken -> %s\n", label, target)
+	} else {
+		fmt.Printf("  %s: OK -> %s\n", label, target)
+	}
+}
+
 func cmdVault(cfg *config.Config, args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: jamshid vault <init|sync>")
+		fmt.Fprintln(os.Stderr, "Usage: jamshid vault <init|push|pull|status>")
 		os.Exit(1)
 	}
 
-	if err := gitvault.CheckGhAuth(); err != nil {
+	ctx := context.Background()
+
+	if err := gitvault.CheckGhAuth(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -342,14 +382,50 @@ func cmdVault(cfg *config.Config, args []string) {
 			fmt.Fprintln(os.Stderr, "Usage: jamshid vault init <url>")
 			os.Exit(1)
 		}
+		if err := gitvault.InitVault(ctx, args[1]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		cfg.VaultRemote = args[1]
 		if err := config.SaveConfig(cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("Vault remote set to %s\n", args[1])
-	case "sync":
-		fmt.Println("Vault sync not yet implemented")
+	case "push", "sync":
+		if cfg.VaultRemote == "" {
+			fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
+			os.Exit(1)
+		}
+		if err := gitvault.SyncPush(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Vault pushed successfully")
+	case "pull":
+		if cfg.VaultRemote == "" {
+			fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
+			os.Exit(1)
+		}
+		if err := gitvault.SyncPull(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Vault pulled successfully")
+	case "status":
+		if cfg.VaultRemote == "" {
+			fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
+			os.Exit(1)
+		}
+		s, err := gitvault.GetVaultStatus(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Remote: %s\n", s.Remote)
+		fmt.Printf("Branch: %s\n", s.Branch)
+		fmt.Printf("Ahead:  %d\n", s.Ahead)
+		fmt.Printf("Behind: %d\n", s.Behind)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown vault command: %s\n", args[0])
 		os.Exit(1)
@@ -360,15 +436,16 @@ func cmdHelp() {
 	fmt.Println("jamshid - Claude Code profile manager")
 	fmt.Println("\nUsage: jamshid <command> [arguments]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  add <name>          Create a new profile (imports settings + MCP configs if found)")
-	fmt.Println("  delete <name>       Delete a profile")
-	fmt.Println("  list                List all profiles")
-	fmt.Println("  link [profile]      Link profile to cwd via symlinks (interactive if no profile given)")
-	fmt.Println("  unlink              Unlink profile symlinks from cwd")
-	fmt.Println("  env <profile>       Set CLAUDE_CONFIG_DIR to the profile's config directory")
-	fmt.Println("  vault <init|sync>   Manage Git vault")
-	fmt.Println("  version             Print version")
-	fmt.Println("  help                Show this help message")
+	fmt.Println("  add <name>               Create a new profile (imports settings + MCP configs if found)")
+	fmt.Println("  delete <name>            Delete a profile")
+	fmt.Println("  list                     List all profiles")
+	fmt.Println("  link [profile]           Link profile to cwd via symlinks (interactive if no profile given)")
+	fmt.Println("  unlink                   Unlink profile symlinks from cwd")
+	fmt.Println("  env <profile>            Set CLAUDE_CONFIG_DIR to the profile's config directory")
+	fmt.Println("  status                   Show active profile and symlink health for cwd")
+	fmt.Println("  vault <init|push|pull|status>  Manage Git vault")
+	fmt.Println("  version                  Print version")
+	fmt.Println("  help                     Show this help message")
 	fmt.Println("\nEnv usage:")
 	fmt.Println("  eval $(jamshid env personal)   # Set CLAUDE_CONFIG_DIR in current shell")
 	fmt.Println("  eval $(jamshid env work)       # Switch to work profile")
@@ -385,7 +462,9 @@ func promptFirstRun(cfg *config.Config) {
 		return
 	}
 
-	if err := gitvault.CheckGhAuth(); err != nil {
+	ctx := context.Background()
+
+	if err := gitvault.CheckGhAuth(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		fmt.Println("You can set up a vault later with: jamshid vault init <url>")
 		return
@@ -399,7 +478,7 @@ func promptFirstRun(cfg *config.Config) {
 		return
 	}
 
-	if err := gitvault.InitVault(url); err != nil {
+	if err := gitvault.InitVault(ctx, url); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		fmt.Println("You can set up a vault later with: jamshid vault init <url>")
 		return

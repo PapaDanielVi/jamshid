@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"charm.land/bubbles/v2/list"
@@ -10,6 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
+	"github.com/PapaDanielVi/jamshid/internal/pkg/constants"
 	"github.com/PapaDanielVi/jamshid/internal/pkg/profile"
 )
 
@@ -57,13 +60,16 @@ var commands = []listItem{
 	{title: "link", description: "Link profile to current directory"},
 	{title: "unlink", description: "Unlink profile from current directory"},
 	{title: "env", description: "Set CLAUDE_CONFIG_DIR for a profile"},
+	{title: "status", description: "Show active profile and symlink health"},
 	{title: "vault", description: "Manage Git vault"},
 	{title: "help", description: "Show help"},
 }
 
 var vaultSubcommands = []listItem{
 	{title: "init", description: "Initialize git vault with remote URL"},
-	{title: "sync", description: "Sync vault with remote"},
+	{title: "push", description: "Push profiles to remote vault"},
+	{title: "pull", description: "Pull profiles from remote vault"},
+	{title: "status", description: "Show vault status"},
 }
 
 func NewTUI(cfg *config.Config, cwd string) *tuiModel {
@@ -186,6 +192,10 @@ func (m *tuiModel) updateCommands(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					case "list":
 						m.resultText = m.buildListResult()
+						m.state = ViewResult
+						return m, nil
+					case "status":
+						m.resultText = m.buildStatusResult()
 						m.state = ViewResult
 						return m, nil
 					case "unlink":
@@ -338,21 +348,57 @@ func (m *tuiModel) buildUnlinkResult() string {
 	return fmt.Sprintf("Unlinked profile from %s", m.cwd)
 }
 
+func (m *tuiModel) buildStatusResult() string {
+	name := profile.GetActiveProfile(m.cfg, m.cwd)
+	if name == "" {
+		return fmt.Sprintf("No profile linked to %s", m.cwd)
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Profile: %s\n", name)
+	sb.WriteString(tuiSymlinkStatus(
+		filepath.Join(m.cwd, constants.DirClaude, constants.FileSettingsLocal),
+		constants.DirClaude+"/"+constants.FileSettingsLocal,
+	))
+	for _, f := range []string{".mcp.json", "mcp.json", "mcp_servers.json"} {
+		sb.WriteString(tuiSymlinkStatus(filepath.Join(m.cwd, f), f))
+	}
+	return sb.String()
+}
+
+func tuiSymlinkStatus(path, label string) string {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return ""
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return fmt.Sprintf("  %s: file (not a symlink)\n", label)
+	}
+	target, err := os.Readlink(path)
+	if err != nil {
+		return fmt.Sprintf("  %s: unreadable symlink\n", label)
+	}
+	if _, err := os.Stat(target); err != nil {
+		return fmt.Sprintf("  %s: broken -> %s\n", label, target)
+	}
+	return fmt.Sprintf("  %s: OK -> %s\n", label, target)
+}
+
 func (m *tuiModel) buildHelpResult() string {
 	return `jamshid - Claude Code profile manager
 
 Usage: jamshid <command> [arguments]
 
 Commands:
-  add <name>          Create a new profile
-  delete <name>       Delete a profile
-  list                List all profiles
-  link [profile]      Link profile to cwd
-  unlink              Unlink profile from cwd
-  env <profile>       Set CLAUDE_CONFIG_DIR
-  vault <init|sync>   Manage Git vault
-  version             Print version
-  help                Show this help message`
+  add <name>                    Create a new profile
+  delete <name>                 Delete a profile
+  list                          List all profiles
+  link [profile]                Link profile to cwd
+  unlink                        Unlink profile from cwd
+  env <profile>                 Set CLAUDE_CONFIG_DIR
+  status                        Show active profile and symlink health
+  vault <init|push|pull|status> Manage Git vault
+  version                       Print version
+  help                          Show this help message`
 }
 
 func (m tuiModel) View() tea.View {
