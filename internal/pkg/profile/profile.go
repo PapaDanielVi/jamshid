@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
@@ -186,8 +187,8 @@ type linkRollback struct {
 }
 
 func (r *linkRollback) execute() {
-	for i := len(r.createdLinks) - 1; i >= 0; i-- {
-		_ = os.Remove(r.createdLinks[i])
+	for _, link := range slices.Backward(r.createdLinks) {
+		_ = os.Remove(link)
 	}
 	if r.createdDir != "" {
 		_ = os.Remove(r.createdDir)

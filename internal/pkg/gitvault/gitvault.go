@@ -16,15 +16,6 @@ import (
 
 const gitOpTimeout = 60 * time.Second
 
-// vaultCredentialExclusions lists patterns that must never be committed to the vault.
-var vaultCredentialExclusions = []string{
-	".credentials.json",
-	"projects/",
-	"history/",
-	"todos/",
-	"statsig/",
-}
-
 // VaultStatus holds information about the vault git repository state.
 type VaultStatus struct {
 	Remote string
@@ -66,7 +57,7 @@ func InitVault(ctx context.Context, remote string) error {
 
 // EnsureVaultGitignore writes a .gitignore in the vault dir that excludes
 // credentials, history, todos, and runtime state. It is idempotent.
-func EnsureVaultGitignore(ctx context.Context) error {
+func EnsureVaultGitignore(_ context.Context) error {
 	dir, err := config.JamshidDir()
 	if err != nil {
 		return err
@@ -74,13 +65,19 @@ func EnsureVaultGitignore(ctx context.Context) error {
 	if err := os.MkdirAll(dir, constants.DefaultDirPerm); err != nil {
 		return fmt.Errorf("create vault dir: %w", err)
 	}
-	return ensureGitignoreEntries(filepath.Join(dir, ".gitignore"), vaultCredentialExclusions)
+	return ensureGitignoreEntries(filepath.Join(dir, ".gitignore"), []string{
+		".credentials.json",
+		"projects/",
+		"history/",
+		"todos/",
+		"statsig/",
+	})
 }
 
 func ensureGitignoreEntries(path string, entries []string) error {
 	existing := map[string]bool{}
 	if data, err := os.ReadFile(path); err == nil {
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			existing[strings.TrimSpace(line)] = true
 		}
 	}

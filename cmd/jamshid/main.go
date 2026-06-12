@@ -368,68 +368,81 @@ func cmdVault(cfg *config.Config, args []string) {
 		fmt.Fprintln(os.Stderr, "Usage: jamshid vault <init|push|pull|status>")
 		os.Exit(1)
 	}
-
 	ctx := context.Background()
-
 	if err := gitvault.CheckGhAuth(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	switch args[0] {
 	case "init":
-		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "Usage: jamshid vault init <url>")
-			os.Exit(1)
-		}
-		if err := gitvault.InitVault(ctx, args[1]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		cfg.VaultRemote = args[1]
-		if err := config.SaveConfig(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Vault remote set to %s\n", args[1])
+		cmdVaultInit(ctx, cfg, args[1:])
 	case "push", "sync":
-		if cfg.VaultRemote == "" {
-			fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
-			os.Exit(1)
-		}
-		if err := gitvault.SyncPush(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Vault pushed successfully")
+		cmdVaultPush(ctx, cfg)
 	case "pull":
-		if cfg.VaultRemote == "" {
-			fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
-			os.Exit(1)
-		}
-		if err := gitvault.SyncPull(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Vault pulled successfully")
+		cmdVaultPull(ctx, cfg)
 	case "status":
-		if cfg.VaultRemote == "" {
-			fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
-			os.Exit(1)
-		}
-		s, err := gitvault.GetVaultStatus(ctx)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Remote: %s\n", s.Remote)
-		fmt.Printf("Branch: %s\n", s.Branch)
-		fmt.Printf("Ahead:  %d\n", s.Ahead)
-		fmt.Printf("Behind: %d\n", s.Behind)
+		cmdVaultStatus(ctx, cfg)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown vault command: %s\n", args[0])
 		os.Exit(1)
 	}
+}
+
+func cmdVaultInit(ctx context.Context, cfg *config.Config, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: jamshid vault init <url>")
+		os.Exit(1)
+	}
+	if err := gitvault.InitVault(ctx, args[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	cfg.VaultRemote = args[0]
+	if err := config.SaveConfig(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Vault remote set to %s\n", args[0])
+}
+
+func cmdVaultPush(ctx context.Context, cfg *config.Config) {
+	if cfg.VaultRemote == "" {
+		fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
+		os.Exit(1)
+	}
+	if err := gitvault.SyncPush(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Vault pushed successfully")
+}
+
+func cmdVaultPull(ctx context.Context, cfg *config.Config) {
+	if cfg.VaultRemote == "" {
+		fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
+		os.Exit(1)
+	}
+	if err := gitvault.SyncPull(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Vault pulled successfully")
+}
+
+func cmdVaultStatus(ctx context.Context, cfg *config.Config) {
+	if cfg.VaultRemote == "" {
+		fmt.Fprintln(os.Stderr, "Error: vault not initialized. Run: jamshid vault init <url>")
+		os.Exit(1)
+	}
+	s, err := gitvault.GetVaultStatus(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Remote: %s\n", s.Remote)
+	fmt.Printf("Branch: %s\n", s.Branch)
+	fmt.Printf("Ahead:  %d\n", s.Ahead)
+	fmt.Printf("Behind: %d\n", s.Behind)
 }
 
 func cmdHelp() {
