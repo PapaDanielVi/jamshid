@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/PapaDanielVi/jamshid/internal/pkg/config"
@@ -63,7 +64,7 @@ func AddProfile(cfg *config.Config, name string, importPath ...string) error {
 			if err := copyDir(src, filepath.Join(dir, constants.DirClaude)); err != nil {
 				return fmt.Errorf("copy .claude dir: %w", err)
 			}
-			// Also copy MCP config files from the project root (parent of .claude dir)
+			// Also copy MCP config files from the project root (parent of .claude dir).
 			srcDir := filepath.Dir(src)
 			copyMcpConfigs(srcDir, dir)
 		} else {
@@ -177,6 +178,26 @@ func mcpSymlinkTargets(cwd, profileDir string) map[string]string {
 	return targets
 }
 
+// linkRollback tracks state created during LinkProfile so it can be undone on failure.
+type linkRollback struct {
+	movedFrom    string
+	movedTo      string
+	createdDir   string
+	createdLinks []string
+}
+
+func (r *linkRollback) execute() {
+	for _, link := range slices.Backward(r.createdLinks) {
+		_ = os.Remove(link)
+	}
+	if r.createdDir != "" {
+		_ = os.Remove(r.createdDir)
+	}
+	if r.movedFrom != "" && r.movedTo != "" {
+		_ = os.Rename(r.movedTo, r.movedFrom)
+	}
+}
+
 func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error {
 	if _, exists := cfg.Profiles[profileName]; !exists {
 		return fmt.Errorf("profile %q: %w", profileName, ErrProfileNotFound)
@@ -187,11 +208,13 @@ func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error 
 		return ErrSettingsExists
 	}
 
-	hash := hash.DirHash(cwd)
+	dirHash := hash.DirHash(cwd)
 	dir, err := ProfileDir(profileName)
 	if err != nil {
 		return err
 	}
+
+	rb := &linkRollback{}
 
 	claudeTarget := filepath.Join(dir, constants.DirClaude, constants.FileSettingsLocal)
 	claudeLink := filepath.Join(cwd, constants.DirClaude, constants.FileSettingsLocal)
@@ -207,33 +230,46 @@ func LinkProfile(cfg *config.Config, cwd, profileName string, force bool) error 
 				if err := os.Rename(claudeLink, backup); err != nil {
 					return fmt.Errorf("backup .claude: %w", err)
 				}
+				rb.movedFrom = claudeLink
+				rb.movedTo = backup
 			}
 		} else if info.Mode()&os.ModeSymlink != 0 {
 			_ = os.Remove(claudeLink)
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Join(cwd, constants.DirClaude), constants.DefaultDirPerm); err != nil {
+	claudeDir := filepath.Join(cwd, constants.DirClaude)
+	if _, err := os.Stat(claudeDir); os.IsNotExist(err) {
+		rb.createdDir = claudeDir
+	}
+	if err := os.MkdirAll(claudeDir, constants.DefaultDirPerm); err != nil {
+		rb.execute()
 		return fmt.Errorf("create .claude dir: %w", err)
 	}
+
 	if err := os.Symlink(claudeTarget, claudeLink); err != nil {
+		rb.execute()
 		return fmt.Errorf("create symlink: %w", err)
 	}
+	rb.createdLinks = append(rb.createdLinks, claudeLink)
 
-	// Symlink MCP config files
 	for linkPath, targetPath := range mcpSymlinkTargets(cwd, dir) {
 		_ = os.Remove(linkPath)
-		_ = os.Symlink(targetPath, linkPath)
+		if err := os.Symlink(targetPath, linkPath); err != nil {
+			rb.execute()
+			return fmt.Errorf("create MCP symlink %s: %w", linkPath, err)
+		}
+		rb.createdLinks = append(rb.createdLinks, linkPath)
 	}
 
-	cfg.LinkedDirs[hash] = config.DirEntry{Path: cwd, Hash: hash, Profile: profileName}
+	cfg.LinkedDirs[dirHash] = config.DirEntry{Path: cwd, Hash: dirHash, Profile: profileName}
 	return nil
 }
 
 func UnlinkProfile(cfg *config.Config, cwd string) error {
-	hash := hash.DirHash(cwd)
-	entry, hasEntry := cfg.LinkedDirs[hash]
-	delete(cfg.LinkedDirs, hash)
+	dirHash := hash.DirHash(cwd)
+	entry, hasEntry := cfg.LinkedDirs[dirHash]
+	delete(cfg.LinkedDirs, dirHash)
 
 	claudeLink := filepath.Join(cwd, constants.DirClaude, constants.FileSettingsLocal)
 	if info, err := os.Lstat(claudeLink); err == nil && info.Mode()&os.ModeSymlink != 0 {
@@ -242,7 +278,7 @@ func UnlinkProfile(cfg *config.Config, cwd string) error {
 		}
 	}
 
-	// Remove MCP config symlinks
+	// Remove MCP config symlinks.
 	if hasEntry {
 		dir, err := ProfileDir(entry.Profile)
 		if err == nil {
@@ -258,8 +294,8 @@ func UnlinkProfile(cfg *config.Config, cwd string) error {
 }
 
 func GetActiveProfile(cfg *config.Config, cwd string) string {
-	hash := hash.DirHash(cwd)
-	if entry, ok := cfg.LinkedDirs[hash]; ok {
+	dirHash := hash.DirHash(cwd)
+	if entry, ok := cfg.LinkedDirs[dirHash]; ok {
 		return entry.Profile
 	}
 	return ""
