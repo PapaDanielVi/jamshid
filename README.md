@@ -24,6 +24,22 @@ Jamshid (also spelled Jamshēd) was a mythical Persian king who possessed a magi
 - **Git Vault**: Sync profiles across machines via git
 - **Interactive TUI**: Full terminal UI with profile selection, text input, and sub-command navigation — all commands work through both CLI args and TUI
 
+## Demo
+
+### Quick start: add, link, status, unlink
+
+![quickstart](demo/quickstart.gif)
+
+### Env mode: switch `CLAUDE_CONFIG_DIR` without symlinks
+
+![env mode](demo/env.gif)
+
+### Overview: help and version
+
+![overview](demo/overview.gif)
+
+The GIFs are generated with [VHS](https://github.com/charmbracelet/vhs). The tape scripts live in [`demo/`](demo/) and each one runs in a throwaway sandbox (a temp `HOME`) that it tears down on exit, so re-recording never touches your real profiles. Regenerate with `vhs demo/quickstart.tape` (or `overview` / `env`).
+
 ## Installation
 
 ### Homebrew (macOS / Linux)
