@@ -1,11 +1,11 @@
 module github.com/PapaDanielVi/jamshid
 
-go 1.26.3
+go 1.26.7
 
 require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.1
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.0
 )
 
 require (
